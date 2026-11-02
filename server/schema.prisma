@@ -1,0 +1,80 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum CompetitionType {
+  torneo
+  mixto
+  regular
+}
+
+enum FeelingState {
+  recuperacion
+  cansado
+  regular
+  en_forma
+  en_racha
+}
+
+model User {
+  id           String             @id @default(uuid())
+  email        String             @unique
+  passwordHash String             @map("password_hash")
+  displayName  String             @map("display_name")
+  handle       String             @unique
+  dorsal       Int?
+  position     String?            @default("todoterreno")
+  foot         String?            @default("diestro")
+  matchStats   PlayerMatchStat[]
+  createdMatches Match[]          @relation("MatchCreator")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Match {
+  id              String            @id @default(uuid())
+  team1Name       String            @map("team1_name")
+  team2Name       String            @map("team2_name")
+  scoreTeam1      Int               @map("score_team1")
+  scoreTeam2      Int               @map("score_team2")
+  matchDate       DateTime          @map("match_date")
+  category        CompetitionType   @default(torneo)
+  phase           String?
+  courtTotalCost  Decimal?          @default(0.00) @map("court_total_cost") @db.Decimal(10, 2)
+  notes           String?
+  createdByUserId String?           @map("created_by_user_id")
+  createdByUser   User?             @relation("MatchCreator", fields: [createdByUserId], references: [id])
+  playerStats     PlayerMatchStat[]
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  @@index([createdAt(sort: Desc)])
+  @@index([category])
+  @@map("matches")
+}
+
+model PlayerMatchStat {
+  id             String        @id @default(uuid())
+  userId         String        @map("user_id")
+  matchId        String        @map("match_id")
+  goalsScored    Int           @default(0) @map("goals_scored")
+  courtCostShare Decimal       @default(0.00) @map("court_cost_share") @db.Decimal(10, 2)
+  feeling        FeelingState? @default(en_forma)
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, matchId])
+  @@index([userId])
+  @@index([matchId])
+  @@map("player_match_stats")
+}
+

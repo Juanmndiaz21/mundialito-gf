@@ -1,0 +1,429 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-2: #f0f3f8;
+  --surface-3: #e2e8f0;
+  --line: #e5e7eb;
+  --line-strong: #9ca3af;
+  --text: #111827;
+  --text-body: #4b5563;
+  --text-muted: #6b7280;
+  --espn-red: #e53935;
+  --espn-red-hover: #c62828;
+  --espn-red-dark: #c62828;
+  --espn-red-light: #ffebee;
+  --win: #15803d;
+  --on-win: #ffffff;
+  --win-surface: #dcfce7;
+  --win-muted: #166534;
+  --gold: #b45309;
+  --on-gold: #ffffff;
+  --gold-surface: #fef3c7;
+  --gold-muted: #78350f;
+  --draw: #d97706;
+  --on-draw: #ffffff;
+  --draw-surface: #fef3c7;
+  --draw-muted: #92400e;
+  --loss: #dc2626;
+  --on-loss: #ffffff;
+  --loss-surface: #fee2e2;
+  --loss-muted: #991b1b;
+  --club-orange: #c62828;
+  --club-orange-bright: #e53935;
+  --club-orange-surface: #ffebee;
+  --club-orange-muted: #991b1b;
+  --card-border: #e5e7eb;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --shadow-beautiful-sm: 0px 2px 3px -1px rgba(0, 0, 0, 0.1), 0px 1px 0px 0px rgba(25, 28, 33, 0.02), 0px 0px 0px 1px rgba(25, 28, 33, 0.08);
+  --shadow-beautiful-md: 0px 0px 0px 1px rgba(0, 0, 0, 0.06), 0px 1px 1px -0.5px rgba(0, 0, 0, 0.06), 0px 3px 3px -1.5px rgba(0, 0, 0, 0.06), 0px 6px 6px -3px rgba(0, 0, 0, 0.06), 0px 12px 12px -6px rgba(0, 0, 0, 0.06), 0px 24px 24px -12px rgba(0, 0, 0, 0.06);
+  --shadow-beautiful-lg: 0 2.8px 2.2px rgba(0, 0, 0, 0.034), 0 6.7px 5.3px rgba(0, 0, 0, 0.048), 0 12.5px 10px rgba(0, 0, 0, 0.06), 0 22.3px 17.9px rgba(0, 0, 0, 0.072), 0 41.8px 33.4px rgba(0, 0, 0, 0.086), 0 100px 80px rgba(0, 0, 0, 0.12);
+  --shadow-card: var(--shadow-beautiful-md);
+  --shadow-card-hover: var(--shadow-beautiful-lg);
+  --shadow-elevated: var(--shadow-beautiful-lg);
+}
+
+@utility shadow-beautiful-sm {
+  box-shadow: 0px 2px 3px -1px rgba(0, 0, 0, 0.1), 0px 1px 0px 0px rgba(25, 28, 33, 0.02), 0px 0px 0px 1px rgba(25, 28, 33, 0.08);
+}
+
+@utility shadow-beautiful-md {
+  box-shadow: 0px 0px 0px 1px rgba(0, 0, 0, 0.06), 0px 1px 1px -0.5px rgba(0, 0, 0, 0.06), 0px 3px 3px -1.5px rgba(0, 0, 0, 0.06), 0px 6px 6px -3px rgba(0, 0, 0, 0.06), 0px 12px 12px -6px rgba(0, 0, 0, 0.06), 0px 24px 24px -12px rgba(0, 0, 0, 0.06);
+}
+
+@utility shadow-beautiful-lg {
+  box-shadow: 0 2.8px 2.2px rgba(0, 0, 0, 0.034), 0 6.7px 5.3px rgba(0, 0, 0, 0.048), 0 12.5px 10px rgba(0, 0, 0, 0.06), 0 22.3px 17.9px rgba(0, 0, 0, 0.072), 0 41.8px 33.4px rgba(0, 0, 0, 0.086), 0 100px 80px rgba(0, 0, 0, 0.12);
+}
+
+@layer base {
+  html {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: "Barlow", system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    color-scheme: light;
+    scrollbar-color: var(--line-strong) var(--bg);
+    scrollbar-width: thin;
+  }
+
+  @media (min-width: 1024px) {
+    html {
+      font-size: 16px;
+    }
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background-color: var(--espn-red-light);
+    color: var(--espn-red-dark);
+  }
+
+  input,
+  textarea,
+  select {
+    caret-color: var(--espn-red);
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    max-width: 70ch;
+  }
+
+  a,
+  button {
+    text-underline-offset: 4px;
+  }
+
+  dd,
+  td,
+  th,
+  time {
+    font-variant-numeric: tabular-nums;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--espn-red);
+    outline-offset: 2px;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--win);
+}
+
+.font-display {
+  font-family: "Barlow Condensed", system-ui, -apple-system, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.font-mono-tech {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.elevated-shadow {
+  box-shadow: var(--shadow-elevated);
+}
+
+.tech-frame {
+  position: relative;
+}
+
+.tech-frame::before,
+.tech-frame::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+  border-color: var(--win);
+  opacity: 0.75;
+}
+
+.tech-frame::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--win);
+  border-left: 2px solid var(--win);
+}
+
+.tech-frame::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid var(--win);
+  border-right: 2px solid var(--win);
+}
+
+/* ESPN Sports Portal Aesthetic & Components (DESIGN2.md) */
+.stacked-heading {
+  font-family: "Barlow Condensed", system-ui, -apple-system, sans-serif;
+  text-transform: uppercase;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+
+.btn-espn-ghost {
+  align-items: center;
+  justify-content: center;
+  padding: 10px 28px;
+  border: 2px solid var(--espn-red);
+  color: var(--espn-red-dark);
+  font-weight: 700;
+  font-size: 0.875rem;
+  border-radius: 8px;
+  background-color: transparent;
+  transition: all 200ms var(--ease-out);
+  cursor: pointer;
+}
+
+.btn-espn-ghost:hover {
+  background-color: var(--espn-red);
+  color: #ffffff;
+}
+
+.btn-espn-ghost-white {
+  align-items: center;
+  justify-content: center;
+  padding: 8px 24px;
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.875rem;
+  border-radius: 8px;
+  background-color: transparent;
+  transition: all 200ms var(--ease-out);
+  cursor: pointer;
+}
+
+.btn-espn-ghost-white:hover {
+  background-color: #ffffff;
+  color: var(--espn-red-dark);
+}
+
+.btn-espn-solid {
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px;
+  background-color: var(--espn-red);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.875rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(229, 57, 53, 0.28);
+  transition: all 180ms var(--ease-out);
+  cursor: pointer;
+}
+
+.btn-espn-solid:hover {
+  background-color: var(--espn-red-hover);
+  box-shadow: 0 6px 20px rgba(198, 40, 40, 0.36);
+}
+
+.btn-preview-circle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text);
+  transition: color 150ms var(--ease-out);
+}
+
+.btn-preview-circle:hover {
+  color: var(--espn-red-dark);
+}
+
+.btn-preview-circle .circle-arrow {
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  background-color: var(--espn-red);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  transition: transform 150ms var(--ease-out);
+}
+
+.btn-preview-circle:hover .circle-arrow {
+  transform: translateX(2px);
+  background-color: var(--espn-red-hover);
+}
+
+.badge-hot {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  background-color: var(--espn-red);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 10px;
+}
+
+.espn-schedule-banner {
+  background: linear-gradient(135deg, #b71c1c 0%, #c62828 35%, #e53935 100%);
+}
+
+.espn-video-duotone {
+  background: linear-gradient(135deg, rgba(183, 28, 28, 0.96) 0%, rgba(229, 57, 53, 0.92) 100%);
+}
+
+.espn-card {
+  background-color: #ffffff;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
+  transition: all 200ms var(--ease-out);
+}
+
+.espn-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* Backwards-compatible aliases */
+.club-section-header {
+  position: relative;
+  padding-bottom: 0.6rem;
+}
+
+.club-section-header::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 38px;
+  height: 3px;
+  background-color: var(--espn-red);
+  border-radius: 2px;
+}
+
+.club-btn-orange {
+  background: linear-gradient(135deg, #c62828 0%, #d32f2f 50%, #e53935 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(229, 57, 53, 0.28);
+  transition: all 160ms var(--ease-out);
+}
+
+.club-btn-orange:hover {
+  background: linear-gradient(135deg, #b71c1c 0%, #c62828 100%);
+  box-shadow: 0 6px 20px rgba(183, 28, 28, 0.36);
+}
+
+.club-soccer-net {
+  background-color: #f8fafc;
+  background-image: 
+    repeating-linear-gradient(45deg, rgba(229, 57, 53, 0.04) 0, rgba(229, 57, 53, 0.04) 1px, transparent 0, transparent 20px),
+    repeating-linear-gradient(-45deg, rgba(229, 57, 53, 0.04) 0, rgba(229, 57, 53, 0.04) 1px, transparent 0, transparent 20px);
+}
+
+.club-turf-glow {
+  background: radial-gradient(circle at 50% 100%, rgba(34, 197, 94, 0.18) 0%, rgba(11, 15, 12, 0) 70%);
+}
+
+.drawer-surface {
+  transition: transform 260ms var(--ease-drawer), opacity 200ms var(--ease-out);
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+}
+
+@starting-style {
+  .drawer-surface {
+    opacity: 0;
+    transform: translate3d(0, 100%, 0);
+  }
+}
+
+@media (min-width: 1024px) {
+  @starting-style {
+    .drawer-surface {
+      opacity: 0;
+      transform: translate3d(100%, 0, 0);
+    }
+  }
+}
+
+.modal-surface {
+  transition: transform 200ms var(--ease-out), opacity 180ms var(--ease-out);
+  transform: scale(1);
+  opacity: 1;
+}
+
+@starting-style {
+  .modal-surface {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.toast-surface {
+  transition: transform 240ms var(--ease-out), opacity 240ms var(--ease-out);
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+}
+
+@starting-style {
+  .toast-surface {
+    opacity: 0;
+    transform: translate3d(0, 100%, 0);
+  }
+}
+
+@keyframes spotlight {
+  0% {
+    opacity: 0;
+    transform: translate(-72%, -62%) scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -40%) scale(1);
+  }
+}
+
+.animate-spotlight {
+  animation: spotlight 2s ease 0.6s 1 forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
