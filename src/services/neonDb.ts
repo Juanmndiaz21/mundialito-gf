@@ -67,6 +67,21 @@ export async function fetchLatestMatchFromNeon(): Promise<NeonLatestMatch | null
 }
 
 export async function fetchMatchesFromNeon(): Promise<Match[] | null> {
+  // 1. Intentar primero a través de la API Serverless segura (BFF)
+  try {
+    const res = await fetch("/api/matches", {
+      headers: { Accept: "application/json" },
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json && Array.isArray(json.data)) {
+        return json.data as Match[];
+      }
+    }
+  } catch {
+    // Si la API Serverless no está activa en este entorno, continuar
+  }
+
   const sql = getSql();
   if (!sql) return null;
 
@@ -136,6 +151,20 @@ export async function insertMatchToNeon(
   match: Match,
   extra?: { team1Name?: string; team2Name?: string; scoreTeam1?: number; scoreTeam2?: number; userId?: string }
 ): Promise<boolean> {
+  // 1. Intentar guardar vía API Serverless segura (BFF)
+  try {
+    const res = await fetch("/api/matches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ match, extra }),
+    });
+    if (res.ok) {
+      return true;
+    }
+  } catch {
+    // Continuar al fallback de cliente directo
+  }
+
   const sql = getSql();
   if (!sql) return false;
 
@@ -214,6 +243,18 @@ export async function insertMatchToNeon(
 }
 
 export async function deleteMatchFromNeon(matchId: string): Promise<boolean> {
+  // 1. Intentar borrar vía API Serverless segura (BFF)
+  try {
+    const res = await fetch(`/api/matches?matchId=${encodeURIComponent(matchId)}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      return true;
+    }
+  } catch {
+    // Continuar al fallback de cliente directo
+  }
+
   const sql = getSql();
   if (!sql) return false;
 
