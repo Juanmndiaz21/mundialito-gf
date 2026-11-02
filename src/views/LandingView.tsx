@@ -1,11 +1,11 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useStore } from "../store/StoreContext";
 import { computeMetrics } from "../domain/stats";
 import { winsNeededForTitle } from "../domain/campaigns";
 import {
   computeChampionsLeaderboard,
 } from "../domain/leaderboard";
-import { formatArs, PHASE_LABELS } from "../domain/format";
+import { formatArs, formatPct, PHASE_LABELS } from "../domain/format";
 import { SplitHeading } from "../components/SplitHeading";
 import { TacticalPitchCanvas } from "../components/TacticalPitchCanvas";
 import { ChampionsLeaderboardSection } from "../components/ChampionsLeaderboardSection";
@@ -19,12 +19,42 @@ import { Magnet } from "../components/ui/Magnet";
 import { AnimatedGroup } from "../components/ui/AnimatedGroup";
 import { InView } from "../components/ui/InView";
 import { LatestResultsShowcase } from "../components/LatestResultsShowcase";
-import { UserStatsDashboard } from "../components/UserStatsDashboard";
 
 interface FaqItem {
   question: string;
   answer: string;
 }
+
+type NewsTab = "hot" | "mundial" | "mixto" | "tactica";
+
+interface NewsItemContent {
+  sub: string;
+  title: string;
+  desc: string;
+}
+
+const NEWS_DATA: Record<NewsTab, NewsItemContent> = {
+  mundial: {
+    sub: "Esta semana · MUNDIALITO",
+    title: "Estadísticas oficiales y fixture en vivo del club",
+    desc: "Toda la información del torneo, tablas de posiciones y rendimientos se actualizan automáticamente en cada jornada.",
+  },
+  hot: {
+    sub: "En vivo · TENDENCIA DEL CLUB",
+    title: "Definición de grupos al rojo vivo: un solo pasaje a Octavos",
+    desc: "La última fecha de fase clasificatoria dejó 3 equipos empatados en diferencia de gol con definición por desempate olímpico.",
+  },
+  mixto: {
+    sub: "Domingos · TORNEO MIXTO",
+    title: "Planilla de marcadores completos y cálculo de efectividad",
+    desc: "Noche de goles y empates vibrantes: 11 a 11 en cancha 1 y victoria agónica por la mínima en el cierre de la jornada.",
+  },
+  tactica: {
+    sub: "Laboratorio F5 · RENDIMIENTO",
+    title: "Química de duplas: Talismán y Mufa al descubierto",
+    desc: "El balance matemático detecta qué parejas potencian el porcentaje de victorias colectivas por encima del 75 %.",
+  },
+};
 
 const FAQ_ITEMS: FaqItem[] = [
   {
@@ -74,8 +104,24 @@ export const LandingView: React.FC = () => {
   } = useStore();
 
   const viewRef = useViewChoreography<HTMLDivElement>([]);
+  const [activeNewsTab, setActiveNewsTab] = useState<NewsTab>("mundial");
 
-  const metricsAll = useMemo(() => computeMetrics(matches, "all"), [matches]);
+  const userMatches = useMemo(() => {
+    if (!activeUser?.linkedPlayerId) return matches;
+    return matches.filter((m) =>
+      m.teamPlayers.includes(activeUser.linkedPlayerId)
+    );
+  }, [matches, activeUser]);
+
+  const metricsAll = useMemo(
+    () =>
+      computeMetrics(
+        activeUser ? userMatches : matches,
+        "all",
+        activeUser?.linkedPlayerId
+      ),
+    [matches, activeUser, userMatches]
+  );
 
   const activeCampaign = useMemo(() => {
     const last = campaigns[campaigns.length - 1];
@@ -279,7 +325,7 @@ export const LandingView: React.FC = () => {
                 className="rounded-xl p-3.5 bg-[var(--surface-2)] border border-[var(--line)] flex flex-col justify-between gap-1 shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),0px_1px_0px_0px_rgba(25,28,33,0.02),0px_0px_0px_1px_rgba(25,28,33,0.08)]"
               >
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                  Goles Personales
+                  {activeUser ? `Goles de ${activeUser.displayName}` : "Goles Individuales"}
                 </span>
                 <span className="font-display text-xl font-bold text-[var(--text)] leading-tight">
                   <CountUp to={metricsAll.totalGoals} duration={1.2} suffix=" tantos" />
@@ -297,13 +343,26 @@ export const LandingView: React.FC = () => {
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                   Líder de Copas
                 </span>
-                <span className="font-display text-xl font-bold text-[var(--gold)] leading-tight flex items-center gap-1">
-                  <span>Signo</span>
-                  <span>★★★</span>
-                </span>
-                <span className="text-xs text-gray-500 font-mono-tech">
-                  90.0% Win Rate
-                </span>
+                {leaderboard.length > 0 && leaderboard[0].totalTitles > 0 ? (
+                  <>
+                    <span className="font-display text-xl font-bold text-[var(--gold)] leading-tight flex items-center gap-1">
+                      <span>{leaderboard[0].name}</span>
+                      <span>{"★".repeat(Math.min(leaderboard[0].totalTitles, 5))}</span>
+                    </span>
+                    <span className="text-xs text-gray-500 font-mono-tech">
+                      {formatPct(leaderboard[0].winRate, 1)} Win Rate
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-display text-lg font-bold text-[var(--text-muted)] leading-tight">
+                      Aún sin definir
+                    </span>
+                    <span className="text-xs text-gray-500 font-mono-tech">
+                      0 copas disputadas
+                    </span>
+                  </>
+                )}
               </CardSpotlight>
             </div>
           </div>
@@ -328,7 +387,7 @@ export const LandingView: React.FC = () => {
 
           <div className="py-2 sm:py-0 sm:px-5">
             <dt className="text-xs text-[var(--text-muted)]">
-              Goles personales anotados
+              {activeUser ? `Goles de ${activeUser.displayName}` : "Goles individuales anotados"}
             </dt>
             <dd className="font-display text-3xl font-bold tabular-nums text-[var(--win)] mt-0.5">
               <CountUp to={metricsAll.totalGoals} duration={1.3} />
@@ -412,10 +471,10 @@ export const LandingView: React.FC = () => {
                 ⚽
               </div>
               <h3 className="font-display text-xl font-bold text-white tracking-wide uppercase">
-                Nuestro Equipo
+                Plantel del Club
               </h3>
               <p className="text-xs text-gray-300 leading-relaxed max-w-xs">
-                Plantel histórico de {players.length} compañeros con dorsales oficiales del #01 al #30 y registro de convocatorias por fecha.
+                Plantel histórico de {players.length} jugadores con dorsales oficiales del #01 al #30 y registro de convocatorias por fecha.
               </p>
             </div>
 
@@ -541,9 +600,6 @@ export const LandingView: React.FC = () => {
         onNavigateToMatches={() => navigate("/partidos")}
       />
 
-      {/* DASHBOARD DE USUARIO AUTENTICADO (MÉTRICAS PERSONALIZADAS) */}
-      <UserStatsDashboard />
-
       {/* 4. MATCH SCHEDULE (Franja Roja #E53935) */}
       <section
         aria-label="Match Schedule oficial"
@@ -656,6 +712,197 @@ export const LandingView: React.FC = () => {
               );
             })}
           </AnimatedGroup>
+        </div>
+      </section>
+
+      {/* 5. MÓDULO EDITORIAL SOCCER CLUB EN 3 COLUMNAS (Bienvenidos al Club, Últimas Novedades, Qué Hacemos) */}
+      <section
+        aria-label="Información institucional y novedades del Club"
+        className="rounded-2xl bg-[#181A1D] border border-white/10 p-6 sm:p-8 lg:p-10 text-white flex flex-col gap-8 shadow-xl"
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 divide-y lg:divide-y-0 lg:divide-x divide-white/10">
+          {/* Columna 1: BIENVENIDOS AL CLUB (4 cols) */}
+          <div className="lg:col-span-4 flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <h2 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-wider text-white">
+                Bienvenidos al Club
+              </h2>
+              <div className="w-12 h-1 bg-[var(--espn-red)] rounded-full" />
+            </div>
+
+            {/* 2 Miniaturas lado a lado como en la referencia */}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="aspect-[4/3] rounded-xl bg-gradient-to-br from-[#1E293B]/70 to-[#0F172A]/90 border border-white/10 p-3 flex flex-col justify-between group overflow-hidden relative shadow-sm">
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-purple-950/20 pointer-events-none"
+                />
+                <span className="relative z-10 text-[10px] font-mono-tech px-2 py-0.5 rounded-full bg-black/60 text-white self-start">
+                  ARQUERO
+                </span>
+                <div className="relative z-10 flex items-center justify-center text-3xl my-auto drop-shadow-md">
+                  🧤
+                </div>
+                <span className="relative z-10 text-[11px] font-bold text-gray-200">
+                  Defensa bajo los tres palos
+                </span>
+              </div>
+
+              <div className="aspect-[4/3] rounded-xl bg-gradient-to-br from-[#1E293B]/70 to-[#0F172A]/90 border border-white/10 p-3 flex flex-col justify-between group overflow-hidden relative shadow-sm">
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-blue-950/20 pointer-events-none"
+                />
+                <span className="relative z-10 text-[10px] font-mono-tech px-2 py-0.5 rounded-full bg-black/60 text-white self-start">
+                  CÉSPED
+                </span>
+                <div className="relative z-10 flex items-center justify-center text-3xl my-auto drop-shadow-md">
+                  ⚽
+                </div>
+                <span className="relative z-10 text-[11px] font-bold text-gray-200">
+                  Fútbol 5 con ritmo nocturno
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-300 leading-relaxed pt-1">
+              <strong className="text-white">Somos el match center definitivo para el fútbol entre amigos.</strong> Cada jueves y domingo transformamos el partido semanal en una experiencia de transmisión profesional con estadísticas oficiales, tabla de goleadores y coronas de copa.
+            </p>
+
+            <div className="pt-1">
+              <a
+                href="#/torneo"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/torneo");
+                }}
+                className="text-xs text-[var(--espn-red)] hover:underline font-bold inline-flex items-center gap-1 font-mono-tech"
+              >
+                <span>Leer más sobre el torneo</span>
+                <span>→</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Columna 2: ÚLTIMAS NOVEDADES (4 cols) */}
+          <div className="lg:col-span-4 lg:pl-8 flex flex-col gap-4 pt-6 lg:pt-0">
+            <div className="flex flex-col gap-1.5">
+              <h2 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-wider text-white">
+                Últimas Novedades
+              </h2>
+              <div className="w-12 h-1 bg-[var(--espn-red)] rounded-full" />
+            </div>
+
+            {/* Pestañas de categoría segmentadas */}
+            <div
+              role="tablist"
+              aria-label="Categorías de novedades"
+              className="flex items-center gap-1.5 flex-wrap pt-1"
+            >
+              {(
+                [
+                  { id: "hot", label: "HOT" },
+                  { id: "mundial", label: "MUNDIAL" },
+                  { id: "mixto", label: "MIXTO" },
+                  { id: "tactica", label: "TÁCTICA" },
+                ] as const
+              ).map((tab) => {
+                const isActive = activeNewsTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setActiveNewsTab(tab.id)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-mono-tech font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+                      isActive
+                        ? "bg-[var(--espn-red)] text-white shadow-xs"
+                        : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Contenido interactivo según pestaña seleccionada */}
+            <div className="flex flex-col gap-2 pt-2">
+              <span className="text-[11px] font-mono-tech text-gray-400 uppercase tracking-wider">
+                {NEWS_DATA[activeNewsTab].sub}
+              </span>
+              <h3 className="font-display text-base sm:text-lg font-bold text-[var(--espn-red)] leading-snug">
+                {NEWS_DATA[activeNewsTab].title}
+              </h3>
+              <p className="text-xs text-gray-300 leading-relaxed">
+                {NEWS_DATA[activeNewsTab].desc}
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <a
+                href="#/partidos"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate("/partidos");
+                }}
+                className="text-xs text-gray-300 hover:text-[var(--espn-red)] font-bold inline-flex items-center gap-1 font-mono-tech"
+              >
+                <span>Archivo de novedades</span>
+                <span>→</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Columna 3: QUÉ HACEMOS (4 cols) */}
+          <div className="lg:col-span-4 lg:pl-8 flex flex-col gap-4 pt-6 lg:pt-0">
+            <div className="flex flex-col gap-1.5">
+              <h2 className="font-display text-xl sm:text-2xl font-bold uppercase tracking-wider text-white">
+                Qué Hacemos
+              </h2>
+              <div className="w-12 h-1 bg-[var(--espn-red)] rounded-full" />
+            </div>
+
+            <div className="flex flex-col gap-3.5 pt-1">
+              {[
+                {
+                  icon: "🏆",
+                  title: "Mundialito de 5 Fases",
+                  desc: "Grupos, Octavos, Cuartos, Semifinal y Final consecutiva.",
+                },
+                {
+                  icon: "⚽",
+                  title: "Torneo Mixto de Domingos",
+                  desc: "Planilla de marcadores completos y cálculo de efectividad.",
+                },
+                {
+                  icon: "⚖️",
+                  title: "Armador Equilibrado 5 vs 5",
+                  desc: "Balance matemático por partidos ganados y medidor al 99%.",
+                },
+                {
+                  icon: "🎖️",
+                  title: "Dorsales & Pasaportes",
+                  desc: "Reserva de camiseta oficial con ID asociado al futuro login.",
+                },
+              ].map((item, idx) => (
+                <div key={idx} className="flex items-start gap-3 group">
+                  <div className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-base group-hover:scale-105 transition-transform">
+                    {item.icon}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-display text-sm font-bold text-white leading-tight">
+                      {item.title}
+                    </span>
+                    <span className="text-xs text-gray-300 leading-snug mt-0.5">
+                      {item.desc}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 

@@ -32,7 +32,7 @@ const NAV_ITEMS: NavItemDef[] = [
 ];
 
 export const TopBar: React.FC = () => {
-  const { route, navigate, setModal, activeUser, openRegistrationModal } =
+  const { route, navigate, setModal, activeUser, openSignInModal } =
     useStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -61,25 +61,30 @@ export const TopBar: React.FC = () => {
           <Magnet>
             <NavbarButton
               variant="secondary"
-              onClick={() => openRegistrationModal(null)}
+              onClick={() => openSignInModal()}
               ariaLabel={
                 activeUser
-                  ? `Pasaporte activo: ${activeUser.displayName}`
-                  : "Crear cuenta o reclamar dorsal"
+                  ? `Sesión activa: ${activeUser.displayName}. Clic para cambiar usuario`
+                  : "Sign In: Iniciar sesión y elegir usuario"
               }
+              className="border-white/20 bg-white/10 hover:bg-white/15 text-white"
             >
-              <SolarIcon name="userId" className="w-3.5 h-3.5 text-[var(--espn-red)] shrink-0" />
               {activeUser ? (
                 <>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-pulse" />
                   <span className="font-mono-tech font-bold text-amber-300">
                     #{String(activeUser.dorsal).padStart(2, "0")}
                   </span>
-                  <span className="hidden xl:inline font-bold max-w-[110px] truncate">
+                  <span className="hidden xl:inline font-bold max-w-[100px] truncate">
                     {activeUser.displayName}
                   </span>
+                  <SolarIcon name="arrowDown" className="w-3 h-3 text-gray-400 shrink-0" />
                 </>
               ) : (
-                <span className="font-bold">Pasaporte</span>
+                <>
+                  <SolarIcon name="userId" className="w-3.5 h-3.5 text-[var(--espn-red)] shrink-0" />
+                  <span className="font-bold">Sign In</span>
+                </>
               )}
             </NavbarButton>
           </Magnet>
@@ -172,15 +177,20 @@ export const TopBar: React.FC = () => {
               variant="secondary"
               onClick={() => {
                 setIsMobileMenuOpen(false);
-                openRegistrationModal(null);
+                openSignInModal();
               }}
-              className="w-full"
+              className="w-full justify-between"
             >
-              <SolarIcon name="userId" className="w-4 h-4 text-[var(--espn-red)]" />
-              <span>
-                {activeUser
-                  ? `Pasaporte #${String(activeUser.dorsal).padStart(2, "0")} ${activeUser.displayName}`
-                  : "Crear cuenta o reclamar dorsal"}
+              <div className="flex items-center gap-2">
+                <SolarIcon name="userId" className="w-4 h-4 text-[var(--espn-red)]" />
+                <span>
+                  {activeUser
+                    ? `Sesión: #${String(activeUser.dorsal).padStart(2, "0")} ${activeUser.displayName}`
+                    : "Sign In · Elegir usuario"}
+                </span>
+              </div>
+              <span className="text-[10px] text-amber-300 font-bold uppercase tracking-wider">
+                {activeUser ? "Cambiar" : "Entrar"}
               </span>
             </NavbarButton>
 

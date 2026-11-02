@@ -74,35 +74,7 @@ export const FOOT_LABELS: Record<PreferredFoot, string> = {
   ambidiestro: "Ambidiestro",
 };
 
-export const HISTORICAL_EDITIONS: HistoricalEdition[] = [
-  {
-    id: "hist-2024-c",
-    title: "Copa Clausura 2024",
-    period: "Nov 2024",
-    finalScore: "7 - 5",
-    championPlayerIds: ["signo", "conra", "lauta", "agustin"],
-    finalistPlayerIds: ["ciorci", "jp", "row", "fede"],
-    mvpPlayerId: "signo",
-  },
-  {
-    id: "hist-2025-a",
-    title: "Mundialito Apertura 2025",
-    period: "Jun 2025",
-    finalScore: "6 - 4",
-    championPlayerIds: ["signo", "ciorci", "conra", "jp"],
-    finalistPlayerIds: ["agustin", "lauta", "mati", "franco"],
-    mvpPlayerId: "ciorci",
-  },
-  {
-    id: "hist-2025-c",
-    title: "Supercopa Nocturna 2025",
-    period: "Dic 2025",
-    finalScore: "8 - 6",
-    championPlayerIds: ["lauta", "signo", "row", "mati"],
-    finalistPlayerIds: ["conra", "agustin", "andre", "oso"],
-    mvpPlayerId: "lauta",
-  },
-];
+export const HISTORICAL_EDITIONS: HistoricalEdition[] = [];
 
 export const SEED_REGISTERED_USERS: RegisteredUser[] = [
   {
@@ -201,7 +173,8 @@ export function computeChampionsLeaderboard(
   players: Player[],
   campaigns: Campaign[],
   registeredUsers: RegisteredUser[],
-  mode: LeaderboardMode = "palmares_total"
+  mode: LeaderboardMode = "palmares_total",
+  historicalEditions: HistoricalEdition[] = HISTORICAL_EDITIONS
 ): ChampionLeaderboardEntry[] {
   const mundialitoStats = computePlayerStats(matches, players, "mundialito");
   const statsById = new Map(mundialitoStats.map((s) => [s.id, s]));
@@ -249,7 +222,7 @@ export function computeChampionsLeaderboard(
     let historicalFinals = 0;
 
     if (mode === "palmares_total") {
-      for (const ed of HISTORICAL_EDITIONS) {
+      for (const ed of historicalEditions) {
         if (ed.championPlayerIds.includes(player.id)) {
           historicalTitles += 1;
           editionsWon.unshift(ed.title);

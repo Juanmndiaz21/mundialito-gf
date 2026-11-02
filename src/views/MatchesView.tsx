@@ -48,6 +48,7 @@ export const MatchesView: React.FC = () => {
     setOpenMatchId,
     setOpenPlayerId,
     setModal,
+    activeUser,
   } = useStore();
 
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
@@ -134,6 +135,47 @@ export const MatchesView: React.FC = () => {
 
   const renderFilterControls = () => (
     <div className="flex flex-col gap-4">
+      {activeUser && (
+        <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--line)] flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[var(--text-muted)]">Filtro rápido:</span>
+            <button
+              type="button"
+              onClick={() => {
+                const hasMe = filters.players.includes(activeUser.linkedPlayerId);
+                if (hasMe) {
+                  setFilters({
+                    players: filters.players.filter(
+                      (p) => p !== activeUser.linkedPlayerId
+                    ),
+                  });
+                } else {
+                  setFilters({
+                    players: [activeUser.linkedPlayerId],
+                  });
+                }
+              }}
+              className={`min-h-[36px] px-3 py-1 rounded-[6px] text-xs font-bold border transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
+                filters.players.includes(activeUser.linkedPlayerId)
+                  ? "bg-[var(--win)] text-white border-[var(--win)] shadow-xs"
+                  : "bg-[var(--surface-2)] text-[var(--text)] border-[var(--line-strong)] hover:border-[var(--win)]"
+              }`}
+            >
+              <SolarIcon name="userId" className="w-3.5 h-3.5" />
+              <span>
+                Solo partidos de {activeUser.displayName} (#{String(activeUser.dorsal).padStart(2, "0")})
+              </span>
+            </button>
+          </div>
+
+          {filters.players.includes(activeUser.linkedPlayerId) && (
+            <span className="text-xs font-semibold text-[var(--win)]">
+              Mostrando cotejos donde jugó {activeUser.displayName}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-4">
         <div>
           <span className="block text-xs text-[var(--text-muted)] mb-1.5">
@@ -264,7 +306,7 @@ export const MatchesView: React.FC = () => {
     return (
       <div className="rounded-[12px] bg-[var(--surface)] border border-[var(--line-strong)] p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <p className="text-sm text-[var(--text)]">
-          Todavía no cargaste partidos de Fútbol 2026.
+          No hay partidos registrados de Fútbol 2026 todavía.
         </p>
         <button
           type="button"
@@ -273,7 +315,7 @@ export const MatchesView: React.FC = () => {
           }
           className="min-h-[44px] px-4 py-2 rounded-[8px] bg-[var(--win)] text-[var(--on-win)] text-sm font-semibold active:scale-[0.97] transition-transform duration-150 cursor-pointer"
         >
-          Cargar el primero
+          Registrar el primero
         </button>
       </div>
     );

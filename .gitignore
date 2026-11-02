@@ -37,6 +37,9 @@ Thumbs.db
 # TypeScript cache
 *.tsbuildinfo
 
+# Documentation markdown files
+*.md
+
 # Prisma & database
 prisma/*.db
 prisma/*.db-journal

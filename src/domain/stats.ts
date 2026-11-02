@@ -1,7 +1,14 @@
-import type { GlobalMetrics, Match, Player, PlayerStat, Scope } from "./types";
+import {
+  type GlobalMetrics,
+  type Match,
+  type Player,
+  type PlayerStat,
+  type Scope,
+  getPlayerGoalsInMatch,
+} from "./types";
 
 export const MIN_PJ_RANKING = 4;
-export const MIN_PJ_INVICTO = 2;
+const MIN_PJ_INVICTO = 2;
 
 export function filterByScope(matches: Match[], scope: Scope): Match[] {
   if (scope === "all") return matches;
@@ -100,7 +107,64 @@ export function computePlayerStats(
   return stats;
 }
 
-export function computeMetrics(matches: Match[], scope: Scope): GlobalMetrics {
+export function computePartnerStats(
+  matches: Match[],
+  players: Player[],
+  scope: Scope,
+  targetPlayerId: string
+): PlayerStat[] {
+  const userMatches = filterByScope(matches, scope).filter((m) =>
+    m.teamPlayers.includes(targetPlayerId)
+  );
+  const playerMap = new Map<string, Player>(players.map((p) => [p.id, p]));
+  const acc = new Map<string, { pj: number; w: number; d: number; l: number }>();
+
+  for (const m of userMatches) {
+    const uniqueIds = Array.from(new Set(m.teamPlayers)).filter(
+      (id) => id !== targetPlayerId
+    );
+    for (const pid of uniqueIds) {
+      const current = acc.get(pid) ?? { pj: 0, w: 0, d: 0, l: 0 };
+      current.pj += 1;
+      if (m.result === "win") current.w += 1;
+      else if (m.result === "draw") current.d += 1;
+      else current.l += 1;
+      acc.set(pid, current);
+    }
+  }
+
+  const stats: PlayerStat[] = [];
+  for (const [pid, counts] of acc.entries()) {
+    const player = playerMap.get(pid);
+    stats.push({
+      id: pid,
+      name: player ? player.displayName : pid,
+      scope,
+      matchesPlayed: counts.pj,
+      wins: counts.w,
+      draws: counts.d,
+      losses: counts.l,
+      winRate: counts.pj > 0 ? (counts.w / counts.pj) * 100 : 0,
+      badges: [],
+    });
+  }
+
+  assignBadges(stats);
+
+  stats.sort((a, b) => {
+    if (b.matchesPlayed !== a.matchesPlayed) return b.matchesPlayed - a.matchesPlayed;
+    if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+    return a.name.localeCompare(b.name, "es-AR");
+  });
+
+  return stats;
+}
+
+export function computeMetrics(
+  matches: Match[],
+  scope: Scope,
+  targetPlayerId?: string | null
+): GlobalMetrics {
   const scoped = filterByScope(matches, scope);
   if (scoped.length === 0) {
     return {
@@ -134,11 +198,13 @@ export function computeMetrics(matches: Match[], scope: Scope): GlobalMetrics {
     else if (m.result === "draw") totalDraws += 1;
     else totalLosses += 1;
 
-    if (m.personalGoals !== null) {
-      totalGoals += m.personalGoals;
+    const userGoals = getPlayerGoalsInMatch(m, targetPlayerId);
+
+    if (userGoals !== null) {
+      totalGoals += userGoals;
       matchesWithGoals += 1;
-      if (m.personalGoals > maxGoalsInMatch) {
-        maxGoalsInMatch = m.personalGoals;
+      if (userGoals > maxGoalsInMatch) {
+        maxGoalsInMatch = userGoals;
       }
     }
   }

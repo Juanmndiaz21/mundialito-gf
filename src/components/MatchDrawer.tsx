@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { useStore } from "../store/StoreContext";
+import { getPlayerGoalsInMatch } from "../domain/types";
 import {
   formatArs,
   formatMatchCode,
@@ -24,6 +25,7 @@ export const MatchDrawer: React.FC = () => {
     setConfirmDialog,
     deleteMatch,
     setOpenPlayerId,
+    activeUser,
   } = useStore();
 
   const match = useMemo(
@@ -137,11 +139,13 @@ export const MatchDrawer: React.FC = () => {
 
           <dl className="grid grid-cols-2 divide-x divide-[var(--line)] border-b border-[var(--line)] pb-4">
             <div className="pr-4">
-              <dt className="text-xs text-[var(--text-muted)]">Goles míos</dt>
+              <dt className="text-xs text-[var(--text-muted)]">
+                {activeUser ? `Goles de ${activeUser.displayName}` : "Goles individuales"}
+              </dt>
               <dd className="font-display text-2xl font-bold tabular-nums text-[var(--text)] mt-1">
-                {match.personalGoals === null
+                {getPlayerGoalsInMatch(match, activeUser?.linkedPlayerId) === null
                   ? "Sin registrar"
-                  : match.personalGoals}
+                  : getPlayerGoalsInMatch(match, activeUser?.linkedPlayerId)}
               </dd>
             </div>
             <div className="pl-4">
@@ -154,7 +158,7 @@ export const MatchDrawer: React.FC = () => {
 
           <div>
             <h3 className="text-xs text-[var(--text-muted)] mb-2.5">
-              Compañeros ({match.teamPlayers.length})
+              Jugadores convocados ({match.teamPlayers.length})
             </h3>
             <div className="flex flex-wrap gap-2">
               {match.teamPlayers.map((pid) => {

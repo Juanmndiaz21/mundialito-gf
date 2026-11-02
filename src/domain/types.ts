@@ -27,6 +27,24 @@ export interface Match {
   phase: Phase | null;
   notes: string | null;
   score?: Score | null;
+  playerGoals?: Record<string, number>;
+}
+
+export function getPlayerGoalsInMatch(
+  match: Match,
+  playerId?: string | null
+): number | null {
+  if (!playerId) {
+    return match.personalGoals;
+  }
+  const normId = playerId.toLowerCase().trim();
+  if (match.playerGoals && match.playerGoals[normId] !== undefined) {
+    return match.playerGoals[normId];
+  }
+  if (match.teamPlayers.some((p) => p.toLowerCase().trim() === normId)) {
+    return 0;
+  }
+  return 0;
 }
 
 export interface PlayerStat {

@@ -15,7 +15,7 @@ export function slugifyPlayerId(raw: string): string {
   return base || "jugador";
 }
 
-export function formatDisplayName(raw: string): string {
+function formatDisplayName(raw: string): string {
   const trimmed = raw.trim().replace(/\s+/g, " ");
   if (!trimmed) return "Jugador";
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);

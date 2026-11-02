@@ -1,12 +1,6 @@
--- ========================================================
--- FULBO TRACKER 2026 - MODELO DE DATOS POSTGRESQL OFICIAL
--- ========================================================
-
--- Enums
 CREATE TYPE competition_type AS ENUM ('torneo', 'mixto', 'regular');
 CREATE TYPE feeling_state AS ENUM ('recuperacion', 'cansado', 'regular', 'en_forma', 'en_racha');
 
--- 1. Tabla de Usuarios / Jugadores Registrados
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -20,7 +14,6 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Tabla de Partidos
 CREATE TABLE IF NOT EXISTS matches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     team1_name VARCHAR(100) NOT NULL,
@@ -36,7 +29,6 @@ CREATE TABLE IF NOT EXISTS matches (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Tabla de Participación y Estadísticas por Usuario (Relación M:N)
 CREATE TABLE IF NOT EXISTS player_match_stats (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -48,7 +40,6 @@ CREATE TABLE IF NOT EXISTS player_match_stats (
     CONSTRAINT uq_user_match UNIQUE (user_id, match_id)
 );
 
--- Índices de Alto Rendimiento
 CREATE INDEX IF NOT EXISTS idx_matches_created_at_desc ON matches (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_matches_category ON matches (category);
 CREATE INDEX IF NOT EXISTS idx_player_match_stats_user ON player_match_stats (user_id);

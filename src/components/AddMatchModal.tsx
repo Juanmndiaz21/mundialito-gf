@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store/StoreContext";
 import { SolarIcon } from "./SolarIcon";
-import type {
-  Match,
-  MatchResult,
-  Player,
-  Score,
-  TournamentType,
+import {
+  type Match,
+  type MatchResult,
+  type Player,
+  type Score,
+  type TournamentType,
+  getPlayerGoalsInMatch,
 } from "../domain/types";
 import { previewPhase, recomputePhases } from "../domain/campaigns";
 import {
@@ -53,6 +54,7 @@ export const AddMatchModal: React.FC = () => {
     lastTournament,
     addMatch,
     updateMatch,
+    activeUser,
   } = useStore();
 
   const editingMatch = useMemo(() => {
@@ -71,12 +73,12 @@ export const AddMatchModal: React.FC = () => {
   const [result, setResult] = useState<MatchResult | null>(
     editingMatch ? editingMatch.result : null
   );
+  const initialGoals = editingMatch
+    ? getPlayerGoalsInMatch(editingMatch, activeUser?.linkedPlayerId)
+    : 1;
+
   const [goalsStr, setGoalsStr] = useState<string>(
-    editingMatch
-      ? editingMatch.personalGoals === null
-        ? ""
-        : String(editingMatch.personalGoals)
-      : "1"
+    initialGoals === null ? "" : String(initialGoals)
   );
   const [selectedIds, setSelectedIds] = useState<string[]>(
     editingMatch ? editingMatch.teamPlayers : []
@@ -275,14 +277,14 @@ export const AddMatchModal: React.FC = () => {
     if (goalsStr.trim() !== "") {
       const gNum = Number(goalsStr);
       if (!Number.isInteger(gNum) || gNum < 0 || gNum > 30) {
-        nextErrors.goals = "Los goles van de 0 a 30, o dejalo vacío.";
+        nextErrors.goals = "Los goles van de 0 a 30, o dejar en blanco.";
       } else {
         parsedGoals = gNum;
       }
     }
 
     if (selectedIds.length < 1 || selectedIds.length > 5) {
-      nextErrors.players = "Sumá al menos un compañero.";
+      nextErrors.players = "Seleccionar al menos un jugador para la nómina.";
     }
 
     let parsedScore: Score | null = null;
@@ -320,6 +322,18 @@ export const AddMatchModal: React.FC = () => {
 
     const cleanNotes = notes.trim().slice(0, 140) || null;
 
+    const userPlayerId = activeUser?.linkedPlayerId;
+    const nextPlayerGoals: Record<string, number> = {
+      ...(editingMatch?.playerGoals ?? {}),
+    };
+    if (userPlayerId) {
+      if (parsedGoals !== null) {
+        nextPlayerGoals[userPlayerId] = parsedGoals;
+      } else {
+        delete nextPlayerGoals[userPlayerId];
+      }
+    }
+
     if (editingMatch) {
       updateMatch(
         {
@@ -329,6 +343,7 @@ export const AddMatchModal: React.FC = () => {
           cost: costNum,
           result: result!,
           personalGoals: parsedGoals,
+          playerGoals: nextPlayerGoals,
           teamPlayers: selectedIds,
           notes: cleanNotes,
           score: tournament === "mixto" ? parsedScore : null,
@@ -343,6 +358,7 @@ export const AddMatchModal: React.FC = () => {
           cost: costNum,
           result: result!,
           personalGoals: parsedGoals,
+          playerGoals: nextPlayerGoals,
           teamPlayers: selectedIds,
           notes: cleanNotes,
           score: tournament === "mixto" ? parsedScore : null,
@@ -487,7 +503,9 @@ export const AddMatchModal: React.FC = () => {
               htmlFor="match-goals-input"
               className="block text-xs font-medium text-[var(--text-muted)] mb-1.5"
             >
-              Goles míos (dejá vacío si no se registraron)
+              {activeUser
+                ? `Goles de ${activeUser.displayName} (dejar vacío si no se registraron)`
+                : "Goles individuales (dejar vacío si no se registraron)"}
             </label>
             <div className="flex items-center gap-2">
               <button
@@ -681,7 +699,7 @@ export const AddMatchModal: React.FC = () => {
                     htmlFor="score-us-input"
                     className="block text-[11px] text-[var(--text-muted)] mb-1"
                   >
-                    Nosotros
+                    Equipo (A favor)
                   </label>
                   <input
                     id="score-us-input"
@@ -700,7 +718,7 @@ export const AddMatchModal: React.FC = () => {
                     htmlFor="score-them-input"
                     className="block text-[11px] text-[var(--text-muted)] mb-1"
                   >
-                    Ellos
+                    Rival (En contra)
                   </label>
                   <input
                     id="score-them-input"

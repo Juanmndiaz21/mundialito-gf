@@ -13,6 +13,7 @@ import { MatchDrawer } from "./components/MatchDrawer";
 import { PlayerDrawer } from "./components/PlayerDrawer";
 import { AddMatchModal } from "./components/AddMatchModal";
 import { UserRegistrationModal } from "./components/UserRegistrationModal";
+import { SignInModal } from "./components/SignInModal";
 import {
   ConfirmDialog,
   CorruptedStorageScreen,
@@ -22,7 +23,7 @@ import { SmoothScrollProvider } from "./components/MotionSystem";
 import { PageTransition } from "./components/ui/PageTransition";
 
 const AppShell: React.FC = () => {
-  const { route, corruptedRaw } = useStore();
+  const { route, corruptedRaw, isSignInModalOpen, closeSignInModal } = useStore();
 
   if (corruptedRaw !== null) {
     return (
@@ -65,6 +66,7 @@ const AppShell: React.FC = () => {
         <PlayerDrawer />
         <AddMatchModal />
         <UserRegistrationModal />
+        <SignInModal isOpen={isSignInModalOpen} onClose={closeSignInModal} />
         <ConfirmDialog />
         <Toast />
         <Footer />

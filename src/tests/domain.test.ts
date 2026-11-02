@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { SEED_MATCHES, SEED_PLAYERS } from "../domain/seed";
+import { SEED_PLAYERS } from "../domain/seed";
+import { TEST_FIXTURE_MATCHES } from "./fixtures";
 import { previewPhase, recomputePhases } from "../domain/campaigns";
 import { computeMetrics, computePlayerStats } from "../domain/stats";
 import { findOrCreatePlayer, resolvePlayerId } from "../domain/normalize";
@@ -15,9 +16,9 @@ import type { Match } from "../domain/types";
 
 describe("Fulbo Tracker 2026 domain logic", () => {
   it("recomputePhases reproduces all 22 seed phases with 0 mismatches and 5 campaigns", () => {
-    const { matches, campaigns } = recomputePhases(SEED_MATCHES);
+    const { matches, campaigns } = recomputePhases(TEST_FIXTURE_MATCHES);
     const mun = matches.filter((m) => m.tournamentType === "mundialito");
-    const seedMun = SEED_MATCHES.filter((m) => m.tournamentType === "mundialito");
+    const seedMun = TEST_FIXTURE_MATCHES.filter((m) => m.tournamentType === "mundialito");
 
     expect(mun.map((m) => m.phase)).toEqual(seedMun.map((m) => m.phase));
     expect(campaigns).toHaveLength(5);
@@ -36,7 +37,7 @@ describe("Fulbo Tracker 2026 domain logic", () => {
       null,
     ]);
     expect(campaigns[4].nextPhase).toBe("r16");
-    expect(previewPhase(SEED_MATCHES)).toEqual({
+    expect(previewPhase(TEST_FIXTURE_MATCHES)).toEqual({
       phase: "r16",
       campaignIndex: 5,
       groupRecord: { wins: 2, losses: 1 },
@@ -44,7 +45,7 @@ describe("Fulbo Tracker 2026 domain logic", () => {
   });
 
   it("computeMetrics matches verified Excel numbers for mundialito, mixto, and all", () => {
-    const mun = computeMetrics(SEED_MATCHES, "mundialito");
+    const mun = computeMetrics(TEST_FIXTURE_MATCHES, "mundialito");
     expect(mun.totalMatches).toBe(22);
     expect(mun.totalWins).toBe(15);
     expect(mun.totalDraws).toBe(0);
@@ -57,7 +58,7 @@ describe("Fulbo Tracker 2026 domain logic", () => {
     expect(mun.maxGoalsInMatch).toBe(6);
     expect(mun.currentStreak).toEqual({ result: "win", count: 2 });
 
-    const mix = computeMetrics(SEED_MATCHES, "mixto");
+    const mix = computeMetrics(TEST_FIXTURE_MATCHES, "mixto");
     expect(mix.totalMatches).toBe(3);
     expect(mix.totalWins).toBe(1);
     expect(mix.totalDraws).toBe(1);
@@ -65,7 +66,7 @@ describe("Fulbo Tracker 2026 domain logic", () => {
     expect(mix.totalSpent).toBe(17400);
     expect(mix.totalGoals).toBe(4);
 
-    const all = computeMetrics(SEED_MATCHES, "all");
+    const all = computeMetrics(TEST_FIXTURE_MATCHES, "all");
     expect(all.totalMatches).toBe(25);
     expect(all.totalWins).toBe(16);
     expect(all.totalSpent).toBe(140250);
@@ -73,7 +74,7 @@ describe("Fulbo Tracker 2026 domain logic", () => {
   });
 
   it("computePlayerStats and assignBadges match expected synergy table", () => {
-    const stats = computePlayerStats(SEED_MATCHES, SEED_PLAYERS, "mundialito");
+    const stats = computePlayerStats(TEST_FIXTURE_MATCHES, SEED_PLAYERS, "mundialito");
     const byId = Object.fromEntries(
       stats.map((s) => [s.id, [s.matchesPlayed, s.wins, s.badges]])
     );
@@ -94,7 +95,7 @@ describe("Fulbo Tracker 2026 domain logic", () => {
     const invictos = stats.filter((s) => s.badges.includes("invicto")).map((s) => s.id);
     expect(invictos).toEqual(["aiden", "oso"]);
 
-    const mixStats = computePlayerStats(SEED_MATCHES, SEED_PLAYERS, "mixto");
+    const mixStats = computePlayerStats(TEST_FIXTURE_MATCHES, SEED_PLAYERS, "mixto");
     const mixInsep = mixStats
       .filter((s) => s.badges.includes("inseparable"))
       .map((s) => s.id);
@@ -127,7 +128,7 @@ describe("Fulbo Tracker 2026 domain logic", () => {
       notes: null,
       score: null,
     };
-    const { matches, campaigns } = recomputePhases([...SEED_MATCHES, newMatch]);
+    const { matches, campaigns } = recomputePhases([...TEST_FIXTURE_MATCHES, newMatch]);
     const added = matches.find((m) => m.id === "mun-023")!;
     expect(added.matchNumber).toBe(23);
     expect(added.phase).toBe("r16");
@@ -135,13 +136,44 @@ describe("Fulbo Tracker 2026 domain logic", () => {
   });
 
   it("computeChampionsLeaderboard ranks historical + live 2026 champions and increments stars when a Final is won", () => {
-    const { matches, campaigns } = recomputePhases(SEED_MATCHES);
+    const { matches, campaigns } = recomputePhases(TEST_FIXTURE_MATCHES);
+    const testHistoricalEditions = [
+      {
+        id: "hist-2024-c",
+        title: "Copa Clausura 2024",
+        period: "Nov 2024",
+        finalScore: "7 - 5",
+        championPlayerIds: ["signo", "conra", "lauta", "agustin"],
+        finalistPlayerIds: ["ciorci", "jp", "row", "fede"],
+        mvpPlayerId: "signo",
+      },
+      {
+        id: "hist-2025-a",
+        title: "Mundialito Apertura 2025",
+        period: "Jun 2025",
+        finalScore: "6 - 4",
+        championPlayerIds: ["signo", "ciorci", "conra", "jp"],
+        finalistPlayerIds: ["agustin", "lauta", "mati", "franco"],
+        mvpPlayerId: "ciorci",
+      },
+      {
+        id: "hist-2025-c",
+        title: "Supercopa Nocturna 2025",
+        period: "Dic 2025",
+        finalScore: "8 - 6",
+        championPlayerIds: ["lauta", "signo", "row", "mati"],
+        finalistPlayerIds: ["conra", "agustin", "andre", "oso"],
+        mvpPlayerId: "lauta",
+      },
+    ];
+
     const totalBoard = computeChampionsLeaderboard(
       matches,
       SEED_PLAYERS,
       campaigns,
       SEED_REGISTERED_USERS,
-      "palmares_total"
+      "palmares_total",
+      testHistoricalEditions
     );
 
     expect(totalBoard[0].playerId).toBe("signo");
@@ -151,7 +183,7 @@ describe("Fulbo Tracker 2026 domain logic", () => {
     expect(totalBoard[1].totalTitles).toBe(2);
 
     // If Mundial 1 Final (mun-006) is won, players in Mundial 1 gain +1 live 2026 title
-    const wonFinalInput = SEED_MATCHES.map((m) =>
+    const wonFinalInput = TEST_FIXTURE_MATCHES.map((m) =>
       m.id === "mun-006" ? { ...m, result: "win" as const } : m
     );
     const recomputedWon = recomputePhases(wonFinalInput);
@@ -184,7 +216,7 @@ describe("Fulbo Tracker 2026 domain logic", () => {
       "fede",    // 1 win
     ]; // total wins = 44, target each team = 22
 
-    const draft = generateTeamDraft(top10, SEED_MATCHES, SEED_PLAYERS, "wins", 0);
+    const draft = generateTeamDraft(top10, TEST_FIXTURE_MATCHES, SEED_PLAYERS, "wins", 0);
     expect(draft.teamA.players).toHaveLength(5);
     expect(draft.teamB.players).toHaveLength(5);
     expect(draft.diffWins).toBeLessThanOrEqual(1);
@@ -211,7 +243,7 @@ describe("Fulbo Tracker 2026 domain logic", () => {
       "jp",
       "fede",
     ];
-    const draft = generateTeamDraft(top10, SEED_MATCHES, SEED_PLAYERS, "random");
+    const draft = generateTeamDraft(top10, TEST_FIXTURE_MATCHES, SEED_PLAYERS, "random");
     expect(draft.teamA.players).toHaveLength(5);
     expect(draft.teamB.players).toHaveLength(5);
     expect(draft.criteria).toBe("random");

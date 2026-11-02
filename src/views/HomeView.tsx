@@ -1,6 +1,11 @@
-import React, { useMemo, useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useStore } from "../store/StoreContext";
-import { filterByScope, computeMetrics, computePlayerStats } from "../domain/stats";
+import {
+  filterByScope,
+  computeMetrics,
+  computePlayerStats,
+  computePartnerStats,
+} from "../domain/stats";
 import { winsNeededForTitle } from "../domain/campaigns";
 import {
   formatArs,
@@ -40,18 +45,41 @@ export const HomeView: React.FC = () => {
     isImporting,
     setConfirmDialog,
     resetToSeed,
+    resetToEmpty,
     activeUser,
-    openRegistrationModal,
+    openSignInModal,
   } = useStore();
 
+  const [viewMode, setViewMode] = useState<"personal" | "club">("personal");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const viewRef = useViewChoreography<HTMLDivElement>([]);
 
-  const metrics = useMemo(() => computeMetrics(matches, scope), [matches, scope]);
-  const playerStats = useMemo(
-    () => computePlayerStats(matches, players, scope),
-    [matches, players, scope]
+  const userMatches = useMemo(() => {
+    if (!activeUser?.linkedPlayerId) return matches;
+    return matches.filter((m) =>
+      m.teamPlayers.includes(activeUser.linkedPlayerId)
+    );
+  }, [matches, activeUser]);
+
+  const isPersonal = Boolean(activeUser && viewMode === "personal");
+  const displayedMatches = isPersonal ? userMatches : matches;
+
+  const metrics = useMemo(
+    () =>
+      computeMetrics(
+        displayedMatches,
+        scope,
+        isPersonal ? activeUser?.linkedPlayerId : null
+      ),
+    [displayedMatches, scope, isPersonal, activeUser]
   );
+
+  const playerStats = useMemo(() => {
+    if (isPersonal && activeUser) {
+      return computePartnerStats(matches, players, scope, activeUser.linkedPlayerId);
+    }
+    return computePlayerStats(matches, players, scope);
+  }, [isPersonal, activeUser, matches, players, scope]);
 
   const activeCampaign = useMemo(() => {
     const last = campaigns[campaigns.length - 1];
@@ -66,14 +94,14 @@ export const HomeView: React.FC = () => {
   }, [activeCampaign, matches]);
 
   const recentFive = useMemo(() => {
-    const scoped = filterByScope(matches, scope);
+    const scoped = filterByScope(displayedMatches, scope);
     return [...scoped]
       .sort((a, b) => {
         if (a.date !== b.date) return a.date.localeCompare(a.date);
         return a.matchNumber - b.matchNumber;
       })
       .slice(-5);
-  }, [matches, scope]);
+  }, [displayedMatches, scope]);
 
   const talisman = useMemo(
     () => playerStats.find((s) => s.badges.includes("talisman")) ?? null,
@@ -134,9 +162,9 @@ export const HomeView: React.FC = () => {
                 className="font-display text-3xl sm:text-[42px] font-black leading-tight text-[var(--espn-red)]"
               />
               <p className="text-sm text-[var(--text-muted)]">
-                Mundial {nextCampaignNumber} en curso · Ganá {winsToChampion}{" "}
-                {winsToChampion === 1 ? "partido" : "seguidos"} para salir
-                campeón.
+                Mundial {nextCampaignNumber} en curso · Restan {winsToChampion}{" "}
+                {winsToChampion === 1 ? "victoria" : "victorias consecutivas"} para el
+                campeonato.
               </p>
             </div>
 
@@ -168,11 +196,28 @@ export const HomeView: React.FC = () => {
                   Jugador activo: {activeUser.displayName} ({activeUser.handle} ·{" "}
                   {POSITION_LABELS[activeUser.position]})
                 </span>
+                <button
+                  type="button"
+                  onClick={() => openSignInModal()}
+                  className="text-[var(--win)] hover:underline font-bold ml-1 cursor-pointer"
+                >
+                  Cambiar usuario
+                </button>
               </>
             ) : (
-              <span className="text-[var(--text-muted)]">
-                Sin dorsal reclamado en este navegador.
-              </span>
+              <>
+                <span className="text-[var(--text-muted)]">
+                  Navegando en modo invitado (club global).
+                </span>
+                <button
+                  type="button"
+                  onClick={() => openSignInModal()}
+                  className="text-[var(--win)] hover:underline font-bold ml-1 cursor-pointer inline-flex items-center gap-1"
+                >
+                  <SolarIcon name="userId" className="w-3.5 h-3.5" />
+                  <span>Iniciar sesión</span>
+                </button>
+              </>
             )}
           </div>
 
@@ -180,11 +225,11 @@ export const HomeView: React.FC = () => {
             <Magnet>
               <button
                 type="button"
-                onClick={() => openRegistrationModal(null)}
+                onClick={() => openSignInModal()}
                 className="text-[var(--win)] hover:underline font-semibold inline-flex items-center gap-1 cursor-pointer"
               >
                 <SolarIcon name="userId" className="w-3.5 h-3.5" />
-                <span>Reclamar o cambiar dorsal</span>
+                <span>{activeUser ? "Cambiar de jugador" : "Sign In"}</span>
               </button>
             </Magnet>
             <span className="text-[var(--line-strong)]">·</span>
@@ -220,16 +265,63 @@ export const HomeView: React.FC = () => {
         className="espn-card p-5 sm:p-6 flex flex-col gap-6"
       >
         <div className="flex items-center justify-between gap-4 flex-wrap pb-4 border-b border-[var(--line)]">
-          <ScopeSwitch value={scope} onChange={setScope} />
+          <div className="flex items-center gap-3 flex-wrap">
+            <ScopeSwitch value={scope} onChange={setScope} />
+
+            {activeUser ? (
+              <div
+                role="group"
+                aria-label="Selector de estadísticas"
+                className="inline-flex rounded-lg bg-[var(--surface-2)] p-1 border border-[var(--line-strong)]"
+              >
+                <button
+                  type="button"
+                  onClick={() => setViewMode("personal")}
+                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                    viewMode === "personal"
+                      ? "bg-[var(--win)] text-white shadow-xs"
+                      : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                  }`}
+                >
+                  Mis Números (#{String(activeUser.dorsal).padStart(2, "0")} {activeUser.displayName})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("club")}
+                  className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                    viewMode === "club"
+                      ? "bg-[var(--win)] text-white shadow-xs"
+                      : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                  }`}
+                >
+                  Todo el Club
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => openSignInModal()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--espn-red)]/10 text-[var(--espn-red)] border border-[var(--espn-red)]/20 text-xs font-bold hover:bg-[var(--espn-red)]/20 cursor-pointer transition-colors"
+              >
+                <SolarIcon name="userId" className="w-3.5 h-3.5" />
+                <span>Sign In para ver tus números</span>
+              </button>
+            )}
+          </div>
+
           <span className="text-xs text-[var(--text-muted)]">
-            Mostrando números de {SCOPE_LABELS[scope]}
+            {isPersonal
+              ? `Estadísticas personales de ${activeUser?.displayName} · ${SCOPE_LABELS[scope]}`
+              : `Rendimiento global del Club · ${SCOPE_LABELS[scope]}`}
           </span>
         </div>
 
         {metrics.totalMatches === 0 ? (
           <div className="py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <p className="text-sm text-[var(--text)]">
-              Todavía no cargaste partidos de {SCOPE_LABELS[scope]}.
+              {isPersonal
+                ? `${activeUser?.displayName} todavía no disputó partidos de ${SCOPE_LABELS[scope]}.`
+                : `No hay partidos registrados de ${SCOPE_LABELS[scope]} todavía.`}
             </p>
             <button
               type="button"
@@ -241,7 +333,7 @@ export const HomeView: React.FC = () => {
               }
               className="min-h-[44px] px-4 py-2 rounded-[8px] bg-[var(--win)] text-[var(--on-win)] text-sm font-semibold active:scale-[0.97] transition-transform duration-150 cursor-pointer"
             >
-              Cargar el primero
+              Registrar el primero
             </button>
           </div>
         ) : (
@@ -257,7 +349,9 @@ export const HomeView: React.FC = () => {
             <div className="md:col-span-8 flex flex-col gap-5">
               <dl className="grid grid-cols-2 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[var(--line)] border-b border-[var(--line)] pb-4">
                 <div className="py-2 sm:py-0 sm:pr-5">
-                  <dt className="text-xs text-[var(--text-muted)]">Partidos</dt>
+                  <dt className="text-xs text-[var(--text-muted)]">
+                    {isPersonal ? `Partidos (${activeUser?.displayName})` : "Partidos del Club"}
+                  </dt>
                   <dd className="font-display text-3xl font-bold tabular-nums text-[var(--text)] mt-0.5">
                     <CountUp to={metrics.totalMatches} duration={1.1} />
                   </dd>
@@ -269,7 +363,9 @@ export const HomeView: React.FC = () => {
                 </div>
 
                 <div className="py-2 sm:py-0 sm:px-5">
-                  <dt className="text-xs text-[var(--text-muted)]">Goles míos</dt>
+                  <dt className="text-xs text-[var(--text-muted)]">
+                    {isPersonal ? `Goles de ${activeUser?.displayName}` : "Goles en planilla"}
+                  </dt>
                   <dd className="font-display text-3xl font-bold tabular-nums text-[var(--win)] mt-0.5">
                     <CountUp to={metrics.totalGoals} duration={1.2} />
                   </dd>
@@ -280,7 +376,9 @@ export const HomeView: React.FC = () => {
                 </div>
 
                 <div className="col-span-2 sm:col-span-1 pt-3 sm:pt-0 sm:pl-5">
-                  <dt className="text-xs text-[var(--text-muted)]">Invertido</dt>
+                  <dt className="text-xs text-[var(--text-muted)]">
+                    {isPersonal ? `Inversión (${activeUser?.displayName})` : "Inversión total"}
+                  </dt>
                   <dd className="font-display text-2xl sm:text-3xl font-bold tabular-nums text-[var(--gold)] mt-0.5">
                     <CountUp
                       to={metrics.totalSpent}
@@ -435,7 +533,10 @@ export const HomeView: React.FC = () => {
                 id="feeling-highlights-heading"
                 className="font-display text-2xl font-bold text-[var(--text)]"
               >
-                Feeling ({SCOPE_LABELS[scope]})
+                {isPersonal
+                  ? `Química de ${activeUser?.displayName}`
+                  : "Feeling del Club"}{" "}
+                ({SCOPE_LABELS[scope]})
               </h2>
               <a
                 href="#/feeling"
@@ -451,7 +552,7 @@ export const HomeView: React.FC = () => {
 
             {!talisman && !mufa && (
               <p className="text-xs text-[var(--text-muted)] py-2 border-t border-[var(--line)]">
-                Talismán y Mufa aparecen cuando alguien juega 4 partidos con vos. Hoy el máximo es{" "}
+                Talismán y Mufa se determinan con un mínimo de 4 partidos disputados en dupla. El registro actual es{" "}
                 {maxPjInScope}.
               </p>
             )}
@@ -562,7 +663,7 @@ export const HomeView: React.FC = () => {
         className="border-t border-[var(--line-strong)] pt-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
       >
         <p className="text-sm text-[var(--text-muted)]">
-          Tus datos viven en este navegador ({matches.length} partidos guardados).
+          Datos almacenados en este navegador ({matches.length} partidos registrados).
         </p>
 
         <div className="flex items-center gap-2.5 flex-wrap">
@@ -603,9 +704,26 @@ export const HomeView: React.FC = () => {
             type="button"
             onClick={() =>
               setConfirmDialog({
+                title: "Reiniciar todas las estadísticas",
+                message:
+                  "¿Confirmar el reinicio de estadísticas a cero? Se borrarán todos los partidos de Neon y del almacenamiento local para iniciar el registro desde cero.",
+                confirmLabel: "Sí, reiniciar a cero",
+                onConfirm: resetToEmpty,
+              })
+            }
+            className="min-h-[44px] px-3.5 py-2 rounded-[8px] bg-[var(--surface)] border border-[var(--loss)]/40 hover:border-[var(--loss)] text-xs font-semibold text-[var(--loss)] inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <SolarIcon name="trash" className="w-4 h-4 text-[var(--loss)]" />
+            <span>Resetear a cero</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setConfirmDialog({
                 title: "Restaurar datos del Excel",
                 message:
-                  "¿Querés volver a los 25 partidos originales de FUTBOL 2026.xlsx? Cualquier partido cargado después se va a reemplazar.",
+                  "¿Confirmar la restauración de los 25 partidos de FUTBOL 2026.xlsx? Cualquier registro posterior será reemplazado.",
                 confirmLabel: "Sí, restaurar Excel",
                 onConfirm: resetToSeed,
               })

@@ -1,6 +1,10 @@
 import React, { useMemo, useState } from "react";
 import { useStore } from "../store/StoreContext";
-import { computePlayerStats, MIN_PJ_RANKING } from "../domain/stats";
+import {
+  computePlayerStats,
+  computePartnerStats,
+  MIN_PJ_RANKING,
+} from "../domain/stats";
 import { formatPct, playerDorsal, playerTone } from "../domain/format";
 import { ScopeSwitch } from "../components/ScopeSwitch";
 import { BadgeTag } from "../components/PlayerDrawer";
@@ -12,16 +16,34 @@ type SortColumn = "name" | "pj" | "wr";
 type SortDir = "asc" | "desc";
 
 export const FeelingView: React.FC = () => {
-  const { matches, players, scope, setScope, setOpenPlayerId } = useStore();
+  const {
+    matches,
+    players,
+    scope,
+    setScope,
+    setOpenPlayerId,
+    activeUser,
+    openSignInModal,
+  } = useStore();
+  const [viewMode, setViewMode] = useState<"personal" | "club">("personal");
   const [sortCol, setSortCol] = useState<SortColumn>("pj");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const viewRef = useViewChoreography<HTMLDivElement>([]);
 
-  const stats = useMemo(
-    () => computePlayerStats(matches, players, scope),
-    [matches, players, scope]
-  );
+  const isPersonal = Boolean(activeUser && viewMode === "personal");
+
+  const stats = useMemo(() => {
+    if (isPersonal && activeUser) {
+      return computePartnerStats(
+        matches,
+        players,
+        scope,
+        activeUser.linkedPlayerId
+      );
+    }
+    return computePlayerStats(matches, players, scope);
+  }, [isPersonal, activeUser, matches, players, scope]);
 
   const sortedStats = useMemo(() => {
     const copy = [...stats];
@@ -49,6 +71,26 @@ export const FeelingView: React.FC = () => {
   );
 
   const hasEligibleForRanking = maxPj >= MIN_PJ_RANKING;
+
+  const talisman = useMemo(
+    () => stats.find((s) => s.badges.includes("talisman")) ?? null,
+    [stats]
+  );
+  const mufa = useMemo(
+    () => stats.find((s) => s.badges.includes("mufa")) ?? null,
+    [stats]
+  );
+  const inseparable = useMemo(
+    () => stats.find((s) => s.badges.includes("inseparable")) ?? null,
+    [stats]
+  );
+
+  const userMatchesCount = useMemo(() => {
+    if (!activeUser) return 0;
+    return matches.filter((m) =>
+      m.teamPlayers.includes(activeUser.linkedPlayerId)
+    ).length;
+  }, [activeUser, matches]);
 
   const handleSort = (col: SortColumn) => {
     if (sortCol === col) {
@@ -86,23 +128,127 @@ export const FeelingView: React.FC = () => {
         <div>
           <SplitHeading
             as="h1"
-            text="Feeling con tus compañeros"
+            text={
+              isPersonal
+                ? `Feeling de ${activeUser?.displayName} con el plantel`
+                : "Química y feeling del plantel"
+            }
             className="font-display text-3xl sm:text-4xl font-bold text-[var(--text)]"
           />
           <p className="text-sm text-[var(--text-muted)] mt-1">
-            Talismán y Mufa se calculan entre quienes jugaron 4 o más partidos con vos.
+            {isPersonal
+              ? `Química y duplas calculadas sobre los ${userMatchesCount} partidos disputados por ${activeUser?.displayName} (#${String(activeUser?.dorsal).padStart(2, "0")}).`
+              : "Talismán y Mufa se calculan entre quienes jugaron 4 o más partidos en el club."}
           </p>
         </div>
 
-        <ScopeSwitch value={scope} onChange={setScope} />
+        <div className="flex items-center gap-3 flex-wrap">
+          {activeUser ? (
+            <div
+              role="group"
+              aria-label="Selector de perspectiva de feeling"
+              className="inline-flex rounded-lg bg-[var(--surface-2)] p-1 border border-[var(--line-strong)]"
+            >
+              <button
+                type="button"
+                onClick={() => setViewMode("personal")}
+                className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === "personal"
+                    ? "bg-[var(--win)] text-white shadow-xs"
+                    : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                }`}
+              >
+                Compañeros de {activeUser.displayName} (#{String(activeUser.dorsal).padStart(2, "0")})
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("club")}
+                className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                  viewMode === "club"
+                    ? "bg-[var(--win)] text-white shadow-xs"
+                    : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                }`}
+              >
+                Padrón General
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openSignInModal()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--espn-red)]/10 text-[var(--espn-red)] border border-[var(--espn-red)]/20 text-xs font-bold hover:bg-[var(--espn-red)]/20 cursor-pointer"
+            >
+              <SolarIcon name="userId" className="w-3.5 h-3.5" />
+              <span>Sign In para ver química de duplas</span>
+            </button>
+          )}
+
+          <ScopeSwitch value={scope} onChange={setScope} />
+        </div>
       </div>
+
+      {/* KPI Cards de duplas cuando está en modo personal */}
+      {isPersonal && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="espn-card p-4 flex items-center justify-between border-l-4 border-l-[var(--gold)]">
+            <div>
+              <span className="text-[11px] font-bold text-[var(--gold)] uppercase tracking-wider flex items-center gap-1">
+                <SolarIcon name="trophy" className="w-3.5 h-3.5" />
+                Talismán de {activeUser?.displayName}
+              </span>
+              <p className="font-display text-xl font-black text-[var(--text)] mt-1">
+                {talisman ? talisman.name : "Aún sin definir"}
+              </p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                {talisman
+                  ? `${formatPct(talisman.winRate, 0)} efectividad en ${talisman.matchesPlayed} partidos en dupla`
+                  : "Mínimo 4 partidos en dupla"}
+              </p>
+            </div>
+          </div>
+
+          <div className="espn-card p-4 flex items-center justify-between border-l-4 border-l-[var(--loss)]">
+            <div>
+              <span className="text-[11px] font-bold text-[var(--loss)] uppercase tracking-wider flex items-center gap-1">
+                <SolarIcon name="bolt" className="w-3.5 h-3.5" />
+                Mufa de {activeUser?.displayName}
+              </span>
+              <p className="font-display text-xl font-black text-[var(--text)] mt-1">
+                {mufa ? mufa.name : "Aún sin definir"}
+              </p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                {mufa
+                  ? `${formatPct(mufa.winRate, 0)} efectividad en ${mufa.matchesPlayed} partidos en dupla`
+                  : "Mínimo 4 partidos en dupla"}
+              </p>
+            </div>
+          </div>
+
+          <div className="espn-card p-4 flex items-center justify-between border-l-4 border-l-[var(--win)]">
+            <div>
+              <span className="text-[11px] font-bold text-[var(--win)] uppercase tracking-wider flex items-center gap-1">
+                <SolarIcon name="usersGroup" className="w-3.5 h-3.5" />
+                Socio Más Frecuente
+              </span>
+              <p className="font-display text-xl font-black text-[var(--text)] mt-1">
+                {inseparable ? inseparable.name : "Aún sin definir"}
+              </p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                {inseparable
+                  ? `${inseparable.matchesPlayed} partidos compartidos en cancha`
+                  : "Mayor cantidad de partidos en común"}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!hasEligibleForRanking && (
         <div
           role="status"
           className="rounded-[8px] bg-[var(--surface)] border border-[var(--line-strong)] p-4 text-sm text-[var(--text-muted)]"
         >
-          Talismán y Mufa aparecen cuando alguien juega 4 partidos con vos. Hoy el máximo es{" "}
+          Talismán y Mufa se determinan con un mínimo de 4 partidos disputados {isPersonal ? "en dupla" : "en el club"}. El registro actual es{" "}
           {maxPj}.
         </div>
       )}
@@ -150,7 +296,11 @@ export const FeelingView: React.FC = () => {
                   onClick={() => handleSort("name")}
                   className="min-h-[36px] inline-flex items-center gap-1.5 text-[var(--text)] hover:text-[var(--win)] font-semibold cursor-pointer"
                 >
-                  <span>Compañero</span>
+                  <span>
+                    {isPersonal
+                      ? `Compañero con ${activeUser?.displayName}`
+                      : "Compañero"}
+                  </span>
                   {renderSortIcon("name")}
                 </button>
               </th>
@@ -160,26 +310,34 @@ export const FeelingView: React.FC = () => {
                   onClick={() => handleSort("pj")}
                   className="min-h-[36px] inline-flex items-center gap-1.5 text-[var(--text)] hover:text-[var(--win)] font-semibold cursor-pointer"
                 >
-                  <span>PJ</span>
+                  <span>{isPersonal ? "PJ juntos" : "PJ"}</span>
                   {renderSortIcon("pj")}
                 </button>
               </th>
-              <th className="p-3.5 font-semibold">PG</th>
+              <th className="p-3.5 font-semibold">
+                {isPersonal ? "PG juntos" : "PG"}
+              </th>
               {scope !== "mundialito" && (
-                <th className="p-3.5 font-semibold">PE</th>
+                <th className="p-3.5 font-semibold">
+                  {isPersonal ? "PE juntos" : "PE"}
+                </th>
               )}
-              <th className="p-3.5 font-semibold">PP</th>
+              <th className="p-3.5 font-semibold">
+                {isPersonal ? "PP juntos" : "PP"}
+              </th>
               <th aria-sort={getAriaSort("wr")} className="p-3.5 font-semibold">
                 <button
                   type="button"
                   onClick={() => handleSort("wr")}
                   className="min-h-[36px] inline-flex items-center gap-1.5 text-[var(--text)] hover:text-[var(--win)] font-semibold cursor-pointer"
                 >
-                  <span>Win rate</span>
+                  <span>{isPersonal ? "% Efectividad en dupla" : "Win rate"}</span>
                   {renderSortIcon("wr")}
                 </button>
               </th>
-              <th className="p-3.5 font-semibold">Insignias</th>
+              <th className="p-3.5 font-semibold">
+                {isPersonal ? "Insignia en dupla" : "Insignias"}
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--line)]">

@@ -87,6 +87,14 @@ export const ChampionsLeaderboardSection: React.FC<
     [campaigns]
   );
 
+  const hasHistory = useMemo(
+    () =>
+      baseEntries.some(
+        (e) => e.totalTitles > 0 || e.finalsReached > 0 || e.mundialitoPlayed > 0
+      ),
+    [baseEntries]
+  );
+
   const handleSort = (col: SortColumn) => {
     if (sortBy === col) {
       setSortDir((d) => (d === "desc" ? "asc" : "desc"));
@@ -184,10 +192,21 @@ export const ChampionsLeaderboardSection: React.FC<
       <div className="relative overflow-hidden rounded-2xl p-2 sm:p-3 border-b border-[var(--line)] pb-6">
         <AmbientSectionParticles theme="gold" densityDivisor={20000} />
         <div className="relative z-10">
-          <AnimatedGroup
-            preset="scale"
-            className="grid grid-cols-1 md:grid-cols-3 gap-4"
-          >
+          {!hasHistory ? (
+            <div className="p-8 text-center flex flex-col items-center justify-center gap-2 bg-[var(--surface-2)]/60 rounded-xl border border-dashed border-[var(--line-strong)]">
+              <span className="text-3xl">🏆</span>
+              <p className="text-sm font-bold text-[var(--text)]">
+                Aún no hay torneos ni títulos registrados
+              </p>
+              <p className="text-xs text-[var(--text-muted)] max-w-md">
+                A medida que se registren los partidos y se disputen las fases eliminatorias del Mundialito, los campeones, podios y estrellas se calcularán automáticamente aquí.
+              </p>
+            </div>
+          ) : (
+            <AnimatedGroup
+              preset="scale"
+              className="grid grid-cols-1 md:grid-cols-3 gap-4"
+            >
         {podium.map((entry, idx) => {
           const rank = idx + 1;
           const isCurrentUser =
@@ -293,7 +312,7 @@ export const ChampionsLeaderboardSection: React.FC<
                         <SolarIcon name="check" className="w-3.5 h-3.5" />
                         <span>
                           {isCurrentUser
-                            ? `Tu cuenta (${entry.account.handle})`
+                            ? `Cuenta activa (${entry.account.handle})`
                             : `${entry.account.handle} · ${
                                 POSITION_LABELS[entry.account.position]
                               }`}
@@ -315,6 +334,7 @@ export const ChampionsLeaderboardSection: React.FC<
           );
         })}
           </AnimatedGroup>
+        )}
         </div>
       </div>
 
@@ -364,7 +384,13 @@ export const ChampionsLeaderboardSection: React.FC<
         </button>
       </div>
 
-      {/* Tabla Desktop */}
+      {!hasHistory ? (
+        <div className="p-6 text-center text-xs text-[var(--text-muted)] bg-[var(--surface-2)]/30 rounded-xl border border-dashed border-[var(--line-strong)]">
+          No hay partidos ni ediciones computadas en el ciclo todavía.
+        </div>
+      ) : (
+        <>
+          {/* Tabla Desktop */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -604,7 +630,7 @@ export const ChampionsLeaderboardSection: React.FC<
                 {entry.account ? (
                   <span className="text-[var(--win)] font-semibold">
                     {isCurrentUser
-                      ? `Tu cuenta (${entry.account.handle})`
+                      ? `Cuenta activa (${entry.account.handle})`
                       : entry.account.handle}
                   </span>
                 ) : (
@@ -621,6 +647,8 @@ export const ChampionsLeaderboardSection: React.FC<
           );
         })}
       </ul>
+      </>
+      )}
 
       {/* Pie de sección: enlace a tabla completa o desglose de finales */}
       {compact ? (
@@ -706,7 +734,7 @@ export const ChampionsLeaderboardSection: React.FC<
                   </dt>
                   <dd className="text-xs text-[var(--text-muted)]">
                     {camp.status === "active"
-                      ? "Si ganás la Final de esta campaña, el plantel suma una estrella automática al Leaderboard."
+                      ? "Al consagrarse en la Final de esta campaña, el plantel suma una estrella automática al Leaderboard."
                       : "Llegó hasta el partido definitorio (Fulbo #6) tras ganar 5 partidos seguidos."}
                   </dd>
                 </div>

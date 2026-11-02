@@ -8,8 +8,14 @@ import { SplitHeading } from "../components/SplitHeading";
 import { useViewChoreography } from "../components/MotionSystem";
 
 export const MixtoView: React.FC = () => {
-  const { matches, players, setOpenMatchId, setOpenPlayerId, setModal } =
-    useStore();
+  const {
+    matches,
+    players,
+    setOpenMatchId,
+    setOpenPlayerId,
+    setModal,
+    activeUser,
+  } = useStore();
 
   const viewRef = useViewChoreography<HTMLDivElement>([]);
 
@@ -21,7 +27,22 @@ export const MixtoView: React.FC = () => {
     [matches]
   );
 
-  const metrics = useMemo(() => computeMetrics(matches, "mixto"), [matches]);
+  const userMatches = useMemo(() => {
+    if (!activeUser?.linkedPlayerId) return mixtoMatches;
+    return mixtoMatches.filter((m) =>
+      m.teamPlayers.includes(activeUser.linkedPlayerId)
+    );
+  }, [mixtoMatches, activeUser]);
+
+  const metrics = useMemo(
+    () =>
+      computeMetrics(
+        activeUser ? userMatches : mixtoMatches,
+        "mixto",
+        activeUser?.linkedPlayerId
+      ),
+    [activeUser, userMatches, mixtoMatches]
+  );
 
   const playersMap = useMemo(
     () => new Map(players.map((p) => [p.id, p])),
@@ -38,7 +59,7 @@ export const MixtoView: React.FC = () => {
             className="font-display text-3xl sm:text-4xl font-bold text-[var(--text)]"
           />
           <p className="text-sm text-[var(--text-muted)] mt-1">
-            Partidos con marcador de equipo, goles personales y compañeras/os.
+            Partidos con marcador de equipo, goles individuales y nómina de jugadores.
           </p>
         </div>
 
@@ -55,14 +76,14 @@ export const MixtoView: React.FC = () => {
       {mixtoMatches.length === 0 ? (
         <div className="rounded-[12px] bg-[var(--surface)] border border-[var(--line-strong)] p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <p className="text-sm text-[var(--text)]">
-            Todavía no cargaste partidos de Mixto.
+            No hay partidos de Mixto registrados todavía.
           </p>
           <button
             type="button"
             onClick={() => setModal({ kind: "add", defaultTournament: "mixto" })}
             className="min-h-[44px] px-4 py-2 rounded-[8px] bg-[var(--win)] text-[var(--on-win)] text-sm font-semibold active:scale-[0.97] transition-transform duration-150 cursor-pointer"
           >
-            Cargar el primero
+            Registrar el primero
           </button>
         </div>
       ) : (
@@ -94,7 +115,9 @@ export const MixtoView: React.FC = () => {
               </div>
 
               <div className="sm:px-5">
-                <dt className="text-xs text-[var(--text-muted)]">Goles míos</dt>
+                <dt className="text-xs text-[var(--text-muted)]">
+                  {activeUser ? `Goles de ${activeUser.displayName}` : "Goles individuales"}
+                </dt>
                 <dd className="font-display text-3xl font-bold tabular-nums text-[var(--text)] mt-0.5">
                   {metrics.totalGoals}
                 </dd>

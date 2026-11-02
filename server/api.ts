@@ -1,11 +1,12 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { neon } from "@neondatabase/serverless";
+import "dotenv/config";
 
 export const apiRouter = Router();
 
-// ==========================================
-// 1. Zod Validation Schemas
-// ==========================================
+const NEON_CONN = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL || "";
+const sql = NEON_CONN ? neon(NEON_CONN) : null;
 
 export const CreateMatchSchema = z.object({
   team1Name: z.string().trim().min(2, "Nombre de Equipo 1 obligatorio").max(60),
@@ -29,10 +30,6 @@ export const UserStatsQuerySchema = z.object({
   type: z.enum(["torneo", "mixto", "regular", "all"]).optional().default("all"),
 });
 
-// ==========================================
-// 2. Authentication Middleware
-// ==========================================
-
 export interface AuthenticatedUser {
   id: string;
   email: string;
@@ -51,12 +48,9 @@ export const requireAuth = (req: AuthenticatedRequest, res: Response, next: Next
 
   const token = authHeader.split(" ")[1];
   try {
-    // Para entornos reales verificar con jwt.verify(token, process.env.JWT_SECRET)
-    // Simulación de decodificación segura
     if (!token || token === "invalid") {
       throw new Error("Token inválido");
     }
-    // Usuario autenticado inyectado
     req.user = {
       id: "usr-signo",
       email: "signo@fulbo2026.club",
@@ -68,92 +62,162 @@ export const requireAuth = (req: AuthenticatedRequest, res: Response, next: Next
   }
 };
 
-// ==========================================
-// 3. API Endpoints
-// ==========================================
-
-/**
- * GET /api/matches/latest
- * Consulta pública del último partido registrado (LIMIT 1 por fecha de creación)
- */
 apiRouter.get("/matches/latest", async (_req: Request, res: Response) => {
   try {
-    // Ejemplo de respuesta estándar desde DB
+    if (!sql) {
+      return res.status(500).json({ error: "Base de datos Neon no configurada" });
+    }
+
+    const rows = await sql.query(
+      `SELECT id, team1_name, team2_name, score_team1, score_team2, match_date, category
+       FROM matches
+       ORDER BY match_date DESC, created_at DESC
+       LIMIT 1;`
+    );
+
+    if (!rows || rows.length === 0) {
+      return res.status(200).json({ data: null });
+    }
+
+    const r = rows[0] as Record<string, unknown>;
     const latestMatch = {
-      id: "mat-latest-001",
-      team1Name: "NAVIKX",
-      team2Name: "CHALLENGER",
-      scoreTeam1: 3,
-      scoreTeam2: 1,
-      matchDate: new Date().toISOString(),
-      category: "torneo",
-      createdAt: new Date().toISOString(),
+      id: String(r.id),
+      team1Name: String(r.team1_name),
+      team2Name: String(r.team2_name),
+      scoreTeam1: Number(r.score_team1),
+      scoreTeam2: Number(r.score_team2),
+      matchDate: r.match_date ? new Date(String(r.match_date)).toISOString() : new Date().toISOString(),
+      category: String(r.category),
     };
 
     return res.status(200).json({ data: latestMatch });
   } catch (error) {
-    console.error("Error en GET /api/matches/latest:", error);
-    return res.status(500).json({ error: "Error al recuperar el último partido" });
+    console.error("Error en GET /api/matches/latest con Neon:", error);
+    return res.status(500).json({ error: "Error al recuperar el ultimo partido desde Neon" });
   }
 });
 
 /**
  * POST /api/matches
- * Creación de nuevo partido con validación estricta
+ * Creacion de nuevo partido directamente en Neon PostgreSQL
  */
 apiRouter.post("/matches", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    if (!sql) {
+      return res.status(500).json({ error: "Base de datos Neon no configurada" });
+    }
+
     const parseResult = CreateMatchSchema.safeParse(req.body);
     if (!parseResult.success) {
       return res.status(400).json({
-        error: "Datos de partido inválidos",
+        error: "Datos de partido invalidos",
         details: parseResult.error.flatten().fieldErrors,
       });
     }
 
     const matchData = parseResult.data;
-    const createdMatch = {
-      id: `mat-${Date.now()}`,
-      ...matchData,
-      createdByUserId: req.user?.id,
-      createdAt: new Date().toISOString(),
-    };
+    const matchId = `mat-${Date.now()}`;
+    const userId = req.user?.id || "usr-signo";
+
+    await sql.query(
+      `INSERT INTO matches (
+        id, team1_name, team2_name, score_team1, score_team2, match_date,
+        category, court_total_cost, notes, created_by_user_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
+      [
+        matchId,
+        matchData.team1Name,
+        matchData.team2Name,
+        matchData.scoreTeam1,
+        matchData.scoreTeam2,
+        matchData.matchDate,
+        matchData.category,
+        matchData.courtTotalCost,
+        matchData.notes || null,
+        userId,
+      ]
+    );
+
+    if (matchData.userPersonalStats) {
+      await sql.query(
+        `INSERT INTO player_match_stats (
+          user_id, match_id, goals_scored, court_cost_share, feeling
+        ) VALUES ($1, $2, $3, $4, $5);`,
+        [
+          userId,
+          matchId,
+          matchData.userPersonalStats.goalsScored,
+          matchData.userPersonalStats.courtCostShare,
+          matchData.userPersonalStats.feeling,
+        ]
+      );
+    }
 
     return res.status(201).json({
-      data: createdMatch,
-      message: "Partido registrado exitosamente",
+      data: {
+        id: matchId,
+        ...matchData,
+        createdByUserId: userId,
+      },
+      message: "Partido registrado exitosamente en Neon PostgreSQL",
     });
   } catch (error) {
-    console.error("Error en POST /api/matches:", error);
-    return res.status(500).json({ error: "Error al registrar el partido" });
+    console.error("Error en POST /api/matches con Neon:", error);
+    return res.status(500).json({ error: "Error al registrar el partido en Neon" });
   }
 });
 
 /**
  * GET /api/user/stats
- * Métricas agregadas del usuario en sesión con segmentación por torneo
+ * Metricas agregadas del usuario en sesion directamente desde Neon
  */
 apiRouter.get("/user/stats", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
+    if (!sql) {
+      return res.status(500).json({ error: "Base de datos Neon no configurada" });
+    }
+
     const queryResult = UserStatsQuerySchema.safeParse(req.query);
     const filterType = queryResult.success ? queryResult.data.type : "all";
-    const userId = req.user?.id;
+    const userId = req.user?.id || "usr-signo";
 
-    // Métricas calculadas para el usuario autenticado
+    let query = `
+      SELECT
+        COUNT(m.id)::int as total_matches,
+        COALESCE(SUM(pms.goals_scored), COALESCE(SUM(m.personal_goals), 0))::int as total_goals,
+        COALESCE(SUM(m.cost), 0)::numeric as total_spent,
+        COALESCE(MAX(pms.feeling), 'en_racha') as current_feeling
+      FROM matches m
+      JOIN users u ON u.id = $1
+      LEFT JOIN player_match_stats pms ON pms.match_id = m.id AND pms.user_id = $1
+      WHERE u.linked_player_id = ANY(m.team_players)
+    `;
+    const params: unknown[] = [userId];
+
+    if (filterType === "torneo") {
+      query += ` AND (m.category = 'torneo' OR m.tournament_type = 'mundialito')`;
+    } else if (filterType === "mixto") {
+      query += ` AND (m.category = 'mixto' OR m.tournament_type = 'mixto')`;
+    }
+
+    const rows = await sql.query(query, params);
+    const r = rows && rows.length > 0 ? (rows[0] as Record<string, unknown>) : {};
+
     const stats = {
       userId,
       filterApplied: filterType,
-      totalMatches: filterType === "mixto" ? 3 : filterType === "torneo" ? 22 : 25,
-      totalGoals: filterType === "mixto" ? 4 : 52,
-      totalSpent: filterType === "mixto" ? 17400 : 124500,
-      currentFeeling: "en_racha",
+      totalMatches: Number(r.total_matches ?? 0),
+      totalGoals: Number(r.total_goals ?? 0),
+      totalSpent: Number(r.total_spent ?? 0),
+      currentFeeling: String(r.current_feeling || "en_racha"),
       lastFeelingDate: new Date().toISOString(),
     };
 
     return res.status(200).json({ data: stats });
   } catch (error) {
-    console.error("Error en GET /api/user/stats:", error);
-    return res.status(500).json({ error: "Error al calcular estadísticas personales" });
+    console.error("Error en GET /api/user/stats con Neon:", error);
+    return res.status(500).json({ error: "Error al calcular estadisticas personales en Neon" });
   }
 });
+
 

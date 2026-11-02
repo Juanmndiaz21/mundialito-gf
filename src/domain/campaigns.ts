@@ -27,7 +27,7 @@ function createEmptyCampaign(index: number): Campaign {
   };
 }
 
-export function renumberMatches(matches: Match[]): Match[] {
+function renumberMatches(matches: Match[]): Match[] {
   const byTournament: Record<TournamentType, Match[]> = {
     mundialito: [],
     mixto: [],

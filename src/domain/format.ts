@@ -17,7 +17,7 @@ export function formatArs(amount: number): string {
 }
 
 // Parse YYYY-MM-DD in local time so UTC-3 never shifts the day backwards.
-export function parseLocalDate(isoDate: string): Date {
+function parseLocalDate(isoDate: string): Date {
   const [y, m, d] = isoDate.split("-").map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
 }
@@ -84,16 +84,6 @@ const AVATAR_TONES = [
   { bg: "#26231C", text: "#E6DEC8", border: "#7A7158" },
   { bg: "#1F2429", text: "#D4DCE5", border: "#606D7A" },
 ];
-
-export function playerInitials(displayName: string): string {
-  const clean = displayName.replace(/[^\p{L}\p{N}\s]/gu, "").trim();
-  if (!clean) return "JG";
-  const parts = clean.split(/\s+/);
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return clean.slice(0, 2).toUpperCase();
-}
 
 export function playerTone(playerId: string): {
   bg: string;

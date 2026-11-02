@@ -28,6 +28,7 @@ import {
 } from "../domain/leaderboard";
 import {
   createSeedState,
+  createEmptyState,
   loadPersistedState,
   loadUiPrefs,
   parseImportedBackup,
@@ -41,6 +42,12 @@ import {
   type MatchFilters,
   type RoutePath,
 } from "./router";
+import {
+  fetchMatchesFromNeon,
+  insertMatchToNeon,
+  deleteMatchFromNeon,
+  clearAllMatchesFromNeon,
+} from "../services/neonDb";
 
 export type ModalState =
   | { kind: "add"; defaultTournament?: TournamentType }
@@ -75,7 +82,8 @@ type DataAction =
   | { type: "DELETE_MATCH"; id: string }
   | { type: "ADD_PLAYER"; player: Player }
   | { type: "IMPORT_STATE"; state: PersistedState }
-  | { type: "RESET_TO_SEED" };
+  | { type: "RESET_TO_SEED" }
+  | { type: "RESET_TO_EMPTY" };
 
 function dataReducer(state: PersistedState, action: DataAction): PersistedState {
   switch (action.type) {
@@ -150,6 +158,9 @@ function dataReducer(state: PersistedState, action: DataAction): PersistedState 
     case "RESET_TO_SEED": {
       return createSeedState();
     }
+    case "RESET_TO_EMPTY": {
+      return createEmptyState();
+    }
   }
 }
 
@@ -207,6 +218,7 @@ interface StoreContextValue {
   showToast: (toast: ToastData) => void;
   corruptedRaw: string | null;
   isImporting: boolean;
+  isNeonConnected: boolean;
   addMatch: (
     match: Omit<Match, "id" | "matchNumber" | "phase">,
     newPlayers: Player[]
@@ -217,9 +229,13 @@ interface StoreContextValue {
   importBackupFile: (file: File) => Promise<void>;
   downloadCorruptedRaw: () => void;
   resetToSeed: () => void;
+  resetToEmpty: () => void;
   registeredUsers: RegisteredUser[];
   activeUser: RegisteredUser | null;
   setActiveUserId: (userId: string | null) => void;
+  isSignInModalOpen: boolean;
+  openSignInModal: () => void;
+  closeSignInModal: () => void;
   registrationModalPlayerId: string | null;
   openRegistrationModal: (preselectedPlayerId?: string | null) => void;
   closeRegistrationModal: () => void;
@@ -249,7 +265,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const [state, dispatch] = useReducer(
     dataReducer,
-    initialLoad.status === "ok" ? initialLoad.state : createSeedState()
+    initialLoad.status === "ok" ? initialLoad.state : createEmptyState()
   );
 
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>(
@@ -258,6 +274,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const [activeUserId, setActiveUserIdState] = useState<string | null>(
     initialAccounts.activeUserId
   );
+
+  const activeUser = useMemo(
+    () =>
+      activeUserId
+        ? registeredUsers.find((u) => u.userId === activeUserId) ?? null
+        : null,
+    [activeUserId, registeredUsers]
+  );
+
+  const [isSignInModalOpen, setIsSignInModalOpen] = useState(false);
   const [registrationModalPlayerId, setRegistrationModalPlayerId] = useState<
     string | null
   >(null);
@@ -278,11 +304,53 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const [toast, setToast] = useState<ToastData | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isNeonConnected, setIsNeonConnected] = useState(false);
 
   const { matches, campaigns } = useMemo(
     () => recomputePhases(state.matches),
     [state.matches]
   );
+
+  useEffect(() => {
+    let active = true;
+    fetchMatchesFromNeon()
+      .then((neonMatches) => {
+        if (!active) return;
+        if (neonMatches !== null) {
+          setIsNeonConnected(true);
+
+          if (neonMatches.length === 0) {
+            // Neon esta reseteado a cero; sincronizar cliente local a cero
+            dispatch({ type: "RESET_TO_EMPTY" });
+            savePersistedState(createEmptyState());
+            return;
+          }
+
+          // Neon es la fuente de verdad del club
+          dispatch({
+            type: "IMPORT_STATE",
+            state: {
+              schemaVersion: 1,
+              players: state.players,
+              matches: neonMatches,
+              updatedAt: new Date().toISOString(),
+            },
+          });
+          savePersistedState({
+            schemaVersion: 1,
+            players: state.players,
+            matches: neonMatches,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn("Neon inicializacion:", err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     const onHashChange = () => {
@@ -425,6 +493,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       saveUiPrefs({ scope, lastTournament: matchInput.tournamentType });
       persistOrWarn(nextState);
 
+      const createdDraft: Match = {
+        ...matchInput,
+        id,
+        matchNumber:
+          nextState.matches.find((m) => m.id === id)?.matchNumber || 1,
+        phase: null,
+      };
+      insertMatchToNeon(createdDraft, { userId: activeUser?.userId }).catch((err) => {
+        console.warn("Neon sync addMatch:", err);
+      });
+
       const recomputed = recomputePhases(nextState.matches);
       showToast({
         message: buildPostSaveMessage(
@@ -434,7 +513,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         ),
       });
     },
-    [persistOrWarn, scope, showToast, state]
+    [activeUser, persistOrWarn, scope, showToast, state]
   );
 
   const updateMatch = useCallback(
@@ -448,6 +527,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       dispatch(action);
       persistOrWarn(nextState);
 
+      insertMatchToNeon(match, { userId: activeUser?.userId }).catch((err) => {
+        console.warn("Neon sync updateMatch:", err);
+      });
+
       const recomputed = recomputePhases(nextState.matches);
       showToast({
         message: buildPostSaveMessage(
@@ -457,7 +540,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         ),
       });
     },
-    [persistOrWarn, showToast, state]
+    [activeUser, persistOrWarn, showToast, state]
   );
 
   const deleteMatch = useCallback(
@@ -467,6 +550,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       const nextState = dataReducer(state, action);
       dispatch(action);
       persistOrWarn(nextState);
+
+      deleteMatchFromNeon(id).catch((err) => {
+        console.warn("Neon sync deleteMatch:", err);
+      });
       if (openMatchId === id) {
         setOpenMatchId(null);
       }
@@ -527,18 +614,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     setActiveUserIdState(seedAccounts.activeUserId);
     savePersistedState(seed);
     saveAccountsState(seedAccounts);
+    for (const m of seed.matches) {
+      insertMatchToNeon(m).catch(() => {});
+    }
     showToast({
       message: "Datos restaurados a la planilla Excel original (25 partidos).",
     });
   }, [showToast]);
 
-  const activeUser = useMemo(
-    () =>
-      activeUserId
-        ? registeredUsers.find((u) => u.userId === activeUserId) ?? null
-        : null,
-    [activeUserId, registeredUsers]
-  );
+  const resetToEmpty = useCallback(() => {
+    const empty = createEmptyState();
+    dispatch({ type: "RESET_TO_EMPTY" });
+    setCorruptedRaw(null);
+    savePersistedState(empty);
+    clearAllMatchesFromNeon().catch((e) => {
+      console.warn("Error vaciando Neon:", e);
+    });
+    showToast({
+      message: "Todas las estadísticas se reiniciaron a cero (0 partidos).",
+    });
+  }, [showToast]);
+
 
   const setActiveUserId = useCallback(
     (nextId: string | null) => {
@@ -551,6 +647,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     },
     [registeredUsers]
   );
+
+  const openSignInModal = useCallback(() => {
+    setIsSignInModalOpen(true);
+  }, []);
+
+  const closeSignInModal = useCallback(() => {
+    setIsSignInModalOpen(false);
+  }, []);
 
   const openRegistrationModal = useCallback(
     (preselectedPlayerId?: string | null) => {
@@ -670,6 +774,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       showToast,
       corruptedRaw,
       isImporting,
+      isNeonConnected,
       addMatch,
       updateMatch,
       deleteMatch,
@@ -677,9 +782,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       importBackupFile,
       downloadCorruptedRaw,
       resetToSeed,
+      resetToEmpty,
       registeredUsers,
       activeUser,
       setActiveUserId,
+      isSignInModalOpen,
+      openSignInModal,
+      closeSignInModal,
       registrationModalPlayerId,
       openRegistrationModal,
       closeRegistrationModal,
@@ -706,6 +815,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       showToast,
       corruptedRaw,
       isImporting,
+      isNeonConnected,
       addMatch,
       updateMatch,
       deleteMatch,
@@ -713,9 +823,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       importBackupFile,
       downloadCorruptedRaw,
       resetToSeed,
+      resetToEmpty,
       registeredUsers,
       activeUser,
       setActiveUserId,
+      isSignInModalOpen,
+      openSignInModal,
+      closeSignInModal,
       registrationModalPlayerId,
       openRegistrationModal,
       closeRegistrationModal,

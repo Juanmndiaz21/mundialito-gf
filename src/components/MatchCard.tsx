@@ -1,5 +1,6 @@
 import React from "react";
-import type { Match, Player } from "../domain/types";
+import { type Match, type Player, getPlayerGoalsInMatch } from "../domain/types";
+import { useStore } from "../store/StoreContext";
 import {
   formatArs,
   formatMatchCode,
@@ -42,14 +43,17 @@ export const MatchCard: React.FC<MatchCardProps> = ({
       "bg-[var(--loss-surface)] border-[var(--loss)] text-[var(--loss-muted)]";
   }
 
-  const goalsText =
-    match.personalGoals === null
-      ? "Goles sin registrar"
-      : match.personalGoals === 1
-      ? "1 gol"
-      : `${match.personalGoals} goles`;
+  const { activeUser } = useStore();
+  const effectiveGoals = getPlayerGoalsInMatch(match, activeUser?.linkedPlayerId);
 
-  const isGoalPeak = (match.personalGoals ?? 0) >= 4;
+  const goalsText =
+    effectiveGoals === null
+      ? "Goles sin registrar"
+      : effectiveGoals === 1
+      ? "1 gol"
+      : `${effectiveGoals} goles`;
+
+  const isGoalPeak = (effectiveGoals ?? 0) >= 4;
 
   return (
     <article
