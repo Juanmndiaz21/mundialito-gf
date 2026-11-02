@@ -20,7 +20,6 @@ playwright/.cache
 # Environment variables
 .env
 .env.*
-!.env.example
 
 # Editor & OS files
 .vscode/*
