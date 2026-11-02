@@ -168,3 +168,4 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ error: "Error procesando solicitud en el servidor" });
   }
 }
+
