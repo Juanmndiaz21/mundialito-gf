@@ -2,8 +2,7 @@ import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import type { Match, MatchResult, Phase, TournamentType } from "../domain/types";
 
 const NEON_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_NEON_DATABASE_URL) ||
-  "postgresql://neondb_owner:npg_qmy5OfRKID2l@ep-shiny-smoke-b61fa2us-pooler.c-2.sa-east-1.aws.neon.tech/neondb?sslmode=require";
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_NEON_DATABASE_URL) || "";
 
 let sqlClient: NeonQueryFunction<false, false> | null = null;
 
