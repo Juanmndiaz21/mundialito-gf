@@ -2,8 +2,8 @@ import { SEED_MATCHES, SEED_PLAYERS } from "../domain/seed";
 import { recomputePhases } from "../domain/campaigns";
 import type { PersistedState, Scope, TournamentType } from "../domain/types";
 
-const STORAGE_KEY = "fulbo-tracker:v3";
-const UI_STORAGE_KEY = "fulbo-tracker:ui:v3";
+const STORAGE_KEY = "fulbo-tracker:v4";
+const UI_STORAGE_KEY = "fulbo-tracker:ui:v4";
 
 export interface PersistedUiPrefs {
   scope: Scope;
@@ -66,12 +66,14 @@ export function loadPersistedState(): LoadStateResult {
       window.localStorage.removeItem("fulbo-tracker:ui:v1");
       window.localStorage.removeItem("fulbo-tracker:v2");
       window.localStorage.removeItem("fulbo-tracker:ui:v2");
+      window.localStorage.removeItem("fulbo-tracker:v3");
+      window.localStorage.removeItem("fulbo-tracker:ui:v3");
     }
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw === null) {
-      const empty = createEmptyState();
-      savePersistedState(empty);
-      return { status: "ok", state: empty };
+      const seed = createSeedState();
+      savePersistedState(seed);
+      return { status: "ok", state: seed };
     }
     const parsed: unknown = JSON.parse(raw);
     if (!isValidPersistedState(parsed)) {

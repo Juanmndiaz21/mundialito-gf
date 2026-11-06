@@ -43,3 +43,7 @@ Thumbs.db
 prisma/*.db
 prisma/*.db-journal
 
+# Excel sources
+*.xlsx
+
+
